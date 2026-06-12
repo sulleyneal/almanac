@@ -1,0 +1,14 @@
+{
+  "name": "The Almanac",
+  "short_name": "Almanac",
+  "description": "A living weather chart — forecast and radar over 3-D terrain, in five editions.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "background_color": "#0b0d10",
+  "theme_color": "#0b0d10",
+  "icons": [
+    { "src": "assets/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "assets/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
