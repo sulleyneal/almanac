@@ -17,6 +17,10 @@ The foundation (theme system, conditions card, vendored MapLibre setup) is porte
   pixel-by-pixel in the browser and lofted into an extruded cloud deck — the colder
   the top, the taller the column (flat decks ~2 km, overshooting storm tops ~15 km).
   Rebuilds as you pan; refreshes every ten minutes.
+- **Rain, last 24 h in 3-D** — a grid of points across the view is sampled from
+  Open-Meteo's hourly precipitation (past day), and each wet cell raises a column
+  from the ground — height and color deepen with accumulation (~1 km for a trace,
+  ~15 km for 75 mm+). Hairline gaps between columns; rebuilds as you pan.
 - **Forecast** — current conditions, a 48-hour temperature/rain-chance chart, the week
   ahead, and sun & moon, all from [Open-Meteo](https://open-meteo.com/) (no key).
 - **Anywhere** — search any place on Earth, use your location, or tap the map for the

@@ -432,7 +432,9 @@
     nowcast, draped over the terrain itself. Use the bar beneath the map to play the loop or
     slide through time. Switch on <i>Cloud tops</i> to loft the latest infrared satellite view
     into a three-dimensional cloud deck &mdash; the taller a column stands, the colder and higher
-    its top. Tap anywhere on the map for the forecast there.</p>
+    its top. <i>Rain, last 24 h</i> raises a column from the ground wherever rain has fallen
+    since this hour yesterday &mdash; the taller and deeper its color, the more water came down.
+    Tap anywhere on the map for the forecast there.</p>
 
     <h2>Display</h2>
     <div class="toggles">
@@ -440,6 +442,7 @@
       <label>Contour lines <input type="checkbox" id="tg-contours" checked></label>
       <label>Radar <input type="checkbox" id="tg-radar" checked></label>
       <label>Cloud tops (3-D) <input type="checkbox" id="tg-clouds"></label>
+      <label>Rain, last 24 h (3-D) <input type="checkbox" id="tg-rain"></label>
     </div>
 
     <h2>Appearance</h2>
@@ -531,6 +534,8 @@
 
   /* lofted cloud tops — built later from live GOES/Himawari infrared pixels */
   var CLOUD = { fc:{ type:'FeatureCollection', features:[] }, building:false, moveTimer:null };
+  /* 24-hour rainfall columns — built later from an Open-Meteo grid sample */
+  var RAIN = { fc:{ type:'FeatureCollection', features:[] }, building:false, cache:{} };
 
   /* ---------- five palettes, one layer structure ---------- */
   var PALETTES = {
@@ -554,6 +559,7 @@
       hoodText:'#86714b', hoodFont:'Noto Sans Italic', villageText:'#594a30', townText:'#4a3a26',
       lmText:'#3f3322', lmHalo:'#f6eed9', lmStroke:'#3f3322', lmDot:'#9a3b2e',
       cloudLow:'#e9dfc5', cloudHigh:'#fbf7ec',
+      rainLow:'#c2d2cb', rainHigh:'#3f6b62',
       sky:{ 'sky-color':'#e6d9b8','horizon-color':'#efe5cd','fog-color':'#efe5cd',
             'sky-horizon-blend':0.8,'horizon-fog-blend':0.6 }
     },
@@ -577,6 +583,7 @@
       hoodText:'#5f6c7c', hoodFont:'Noto Sans Regular', villageText:'#9aa7b5', townText:'#dde4ec',
       lmText:'#eef2f6', lmHalo:'#0b0d10', lmStroke:'#0b0d10', lmDot:'#38bdf8',
       cloudLow:'#6b7d91', cloudHigh:'#dfeaf4',
+      rainLow:'#173a52', rainHigh:'#38bdf8',
       sky:{ 'sky-color':'#0a1420','horizon-color':'#16222e','fog-color':'#0e1114',
             'sky-horizon-blend':0.8,'horizon-fog-blend':0.6 }
     }
@@ -602,6 +609,7 @@
     hoodText:'#3e576c', villageText:'#7c95a8', townText:'#bcd6e8',
     lmText:'#e2f0fa', lmHalo:'#070a10', lmStroke:'#070a10', lmDot:'#38bdf8',
     cloudLow:'#54799a', cloudHigh:'#c7e7fa',
+    rainLow:'#123a55', rainHigh:'#56c4f2',
     sky:{ 'sky-color':'#04070c','horizon-color':'#0a141d','fog-color':'#070a10',
           'sky-horizon-blend':0.8,'horizon-fog-blend':0.6 },
     waterGlow:'rgba(56,189,248,0.45)', waterBoost:2.4
@@ -625,6 +633,7 @@
     waterText:'#2d6e91', poiText:'#5d5944', poiFont:'Noto Sans Regular',
     hoodText:'#77704f', hoodFont:'Noto Sans Regular', villageText:'#4c4734', townText:'#33382f',
     lmDot:'#2e6f63',
+    rainLow:'#bcd6e2', rainHigh:'#2d7298',
     reliefRamp: RELIEF_STOPS
   });
   /* Topo: pure contour linework on clean paper — the lines are the landscape. */
@@ -647,6 +656,7 @@
     waterText:'#4f7d99', poiText:'#7d765f', poiFont:'Noto Sans Regular',
     hoodText:'#8d8670', hoodFont:'Noto Sans Regular', villageText:'#5d5640', townText:'#433d2c',
     lmDot:'#6b5635',
+    rainLow:'#ccdde8', rainHigh:'#4f7d99',
     denseContours:true
   });
   var THEME_NAMES = ['antique','midnight','hydro','relief','topo'];
@@ -872,6 +882,12 @@
           'text-variable-anchor':['left','right','top','bottom'],
           'text-radial-offset':0.85, 'text-justify':'auto', 'text-max-width':9 },
         paint:{ 'text-color':P.lmText, 'text-halo-color':P.lmHalo, 'text-halo-width':1.9 } },
+      { id:'rain-deck', type:'fill-extrusion', source:'rain24',
+        layout:{ visibility:'none' },
+        paint:{ 'fill-extrusion-color':['interpolate',['linear'],['get','q'],
+                  0, P.rainLow, 1, P.rainHigh],
+                'fill-extrusion-height':['get','h'], 'fill-extrusion-base':0,
+                'fill-extrusion-opacity':0.85 } },
       { id:'cloud-deck', type:'fill-extrusion', source:'clouds',
         layout:{ visibility:'none' },
         paint:{ 'fill-extrusion-color':['interpolate',['linear'],['get','s'],
@@ -917,7 +933,8 @@
         contours: { type:'vector', tiles:[contourTiles], maxzoom:15 },
         'contours-dense': { type:'vector', tiles:[contourTilesDense], maxzoom:15 },
         spot: { type:'geojson', data:locGeo() },
-        clouds: { type:'geojson', data:CLOUD.fc }
+        clouds: { type:'geojson', data:CLOUD.fc },
+        rain24: { type:'geojson', data:RAIN.fc }
       },
       layers: layers
     };
@@ -1244,11 +1261,100 @@
     }
     if (this.checked) rebuildClouds();
   });
+
+  /* ---------- rainfall of the last 24 hours, standing on the land ----------
+     Open-Meteo answers a whole grid of points in one call: hourly precipitation
+     for the past day, summed per point and raised as a column from the ground. */
+  function rainOn(){ return document.getElementById('tg-rain').checked; }
+  function sum24(hourly){
+    var t = hourly.time, p = hourly.precipitation;
+    if (!t || !p) return 0;
+    var now = Date.now(), last = -1;
+    for (var i = t.length - 1; i >= 0; i--) {
+      if (Date.parse(t[i] + ':00Z') <= now) { last = i; break; }
+    }
+    if (last < 0) return 0;
+    var mm = 0;
+    for (var j = Math.max(0, last - 23); j <= last; j++) mm += (p[j] || 0);
+    return mm;
+  }
+  function rebuildRain(){
+    if (!styleReady || !rainOn() || RAIN.building) return;
+    var b = map.getBounds(), c = map.getCenter();
+    var w = Math.max(b.getWest(), c.lng - 10), e = Math.min(b.getEast(), c.lng + 10);
+    var s = Math.max(b.getSouth(), c.lat - 7, -80), n = Math.min(b.getNorth(), c.lat + 7, 80);
+    var cols = 16, dLon = (e - w) / cols;
+    var rows = Math.max(4, Math.min(12, Math.round((n - s) / dLon)));
+    var dLat = (n - s) / rows;
+    var key = [w.toFixed(1), e.toFixed(1), s.toFixed(1), n.toFixed(1),
+               Math.floor(Date.now() / 3600000)].join('|');
+    function render(cells){
+      var feats = [];
+      cells.forEach(function(cl){
+        if (cl.mm < 0.5) return;
+        var h = 1200 + 14000 * Math.pow(Math.min(1, cl.mm / 75), 0.6);
+        var inX = dLon * 0.04, inY = dLat * 0.04;   /* hairline gaps between the columns */
+        feats.push({ type:'Feature',
+          properties:{ q:Math.min(1, cl.mm / 50), h:h, mm:+cl.mm.toFixed(1) },
+          geometry:{ type:'Polygon', coordinates:[[
+            [cl.w + inX, cl.s + inY], [cl.e - inX, cl.s + inY],
+            [cl.e - inX, cl.n - inY], [cl.w + inX, cl.n - inY],
+            [cl.w + inX, cl.s + inY]]] } });
+      });
+      RAIN.fc = { type:'FeatureCollection', features:feats };
+      if (map.getSource('rain24')) map.getSource('rain24').setData(RAIN.fc);
+    }
+    if (RAIN.cache[key]) { render(RAIN.cache[key]); return; }
+    var pts = [];
+    for (var r = 0; r < rows; r++) for (var cc = 0; cc < cols; cc++) {
+      pts.push({ lat:s + (r + 0.5) * dLat, lon:w + (cc + 0.5) * dLon,
+                 w:w + cc * dLon, e:w + (cc + 1) * dLon,
+                 s:s + r * dLat, n:s + (r + 1) * dLat });
+    }
+    RAIN.building = true;
+    var cells = [], chunks = [];
+    for (var k = 0; k < pts.length; k += 100) chunks.push(pts.slice(k, k + 100));
+    var chain = Promise.resolve();
+    chunks.forEach(function(chunk){
+      chain = chain.then(function(){
+        return fetch('https://api.open-meteo.com/v1/forecast' +
+            '?latitude=' + chunk.map(function(p){ return p.lat.toFixed(3); }).join(',') +
+            '&longitude=' + chunk.map(function(p){ return p.lon.toFixed(3); }).join(',') +
+            '&hourly=precipitation&past_days=1&forecast_days=1&timezone=UTC')
+          .then(function(r){ return r.json(); })
+          .then(function(j){
+            var arr = Array.isArray(j) ? j : [j];
+            arr.forEach(function(loc, i){
+              if (chunk[i] && loc && loc.hourly) chunk[i].mm = sum24(loc.hourly);
+              else if (chunk[i]) chunk[i].mm = 0;
+            });
+            cells = cells.concat(chunk);
+          });
+      });
+    });
+    chain.then(function(){
+      RAIN.building = false;
+      RAIN.cache = {};            /* keep just the freshest grid */
+      RAIN.cache[key] = cells;
+      if (rainOn()) render(cells);
+    }).catch(function(){ RAIN.building = false; });
+  }
+  document.getElementById('tg-rain').addEventListener('change', function(){
+    if (!styleReady) return;
+    if (map.getLayer('rain-deck')) {
+      map.setLayoutProperty('rain-deck', 'visibility', this.checked ? 'visible' : 'none');
+    }
+    if (this.checked) rebuildRain();
+  });
+
   map.on('moveend', function(){
     clearTimeout(CLOUD.moveTimer);
-    CLOUD.moveTimer = setTimeout(rebuildClouds, 500);
+    CLOUD.moveTimer = setTimeout(function(){ rebuildClouds(); rebuildRain(); }, 500);
   });
-  setInterval(function(){ if (cloudsOn()) rebuildClouds(); }, 10 * 60 * 1000);
+  setInterval(function(){
+    if (cloudsOn()) rebuildClouds();
+    if (rainOn()) rebuildRain();
+  }, 10 * 60 * 1000);
 
   /* ---------- runtime state re-applied after load & after every theme swap ---------- */
   function applyRuntime(){
@@ -1266,7 +1372,11 @@
       if (map.getLayer('cloud-deck')) {
         map.setLayoutProperty('cloud-deck', 'visibility', cloudsOn() ? 'visible' : 'none');
       }
+      if (map.getLayer('rain-deck')) {
+        map.setLayoutProperty('rain-deck', 'visibility', rainOn() ? 'visible' : 'none');
+      }
       if (cloudsOn() && !CLOUD.fc.features.length) rebuildClouds();
+      if (rainOn() && !RAIN.fc.features.length) rebuildRain();
       buildRadarLayers();
       applyBrightness();
       applyRelief();
