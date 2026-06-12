@@ -18,9 +18,14 @@ The foundation (theme system, conditions card, vendored MapLibre setup) is porte
   the top, the taller the column (flat decks ~2 km, overshooting storm tops ~15 km).
   Rebuilds as you pan; refreshes every ten minutes.
 - **Rain, last 24 h in 3-D** — a grid of points across the view is sampled from
-  Open-Meteo's hourly precipitation (past day), and each wet cell raises a column
-  from the ground — height and color deepen with accumulation (~1 km for a trace,
-  ~15 km for 75 mm+). Hairline gaps between columns; rebuilds as you pan.
+  Open-Meteo's hourly precipitation (past day), bilinearly interpolated to 3× the
+  sampled resolution, and each wet cell raises a column from the ground — height
+  and color deepen with accumulation (~1 km for a trace, ~15 km for 75 mm+).
+- **Wind flow** — the current 10 m wind field, drawn as drifting particle trails
+  riding a bilinearly-interpolated Open-Meteo grid, tinted in each edition's ink.
+- **Severe weather alerts** — active National Weather Service warning polygons
+  (United States) in their conventional colors; tap one for its headline. Any
+  warnings over the chosen place appear as chips beneath its name in the panel.
 - **Forecast** — current conditions, a 48-hour temperature/rain-chance chart, the week
   ahead, and sun & moon, all from [Open-Meteo](https://open-meteo.com/) (no key).
 - **Anywhere** — search any place on Earth, use your location, or tap the map for the
@@ -49,6 +54,7 @@ python3 -m http.server 8000   # then visit http://localhost:8000
 | Contour lines | Generated in the browser from the same DEM by [maplibre-contour](https://github.com/onthegomap/maplibre-contour) |
 | Radar | [RainViewer public API](https://www.rainviewer.com/api.html) (past 2 h + nowcast, no key) |
 | Cloud tops | GOES-East/West & Himawari Band 13 infrared via [NASA GIBS](https://www.earthdata.nasa.gov/) WMTS (no key) |
+| Severe weather alerts | [NWS alerts API](https://www.weather.gov/documentation/services-web-api) (no key, US only) |
 | Forecast, geocoding | [Open-Meteo](https://open-meteo.com/) (no key) |
 | Rendering | [MapLibre GL JS](https://maplibre.org) with hand-written styles (vendored in `vendor/`) |
 | Typefaces | EB Garamond, IM Fell English, Inter & Space Grotesk via Google Fonts |

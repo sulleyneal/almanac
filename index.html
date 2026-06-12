@@ -94,6 +94,15 @@
 
   #map{ position:absolute; inset:0; background:var(--map-bg); }
 
+  /* wind flow — particle trails drawn above the map, beneath the chrome */
+  #wind{ position:absolute; inset:0; z-index:2; pointer-events:none; }
+
+  /* severe weather chips in the panel */
+  .alert-chip{ margin:10px 0 0; padding:8px 11px; font-size:12.5px; line-height:1.45;
+    border:1px solid; border-left-width:4px; border-radius:var(--panel-radius); }
+  body.ui-modern .alert-chip{ border-radius:12px; font-size:12px; }
+  .alert-chip b{ display:block; font-size:11px; letter-spacing:.12em; text-transform:uppercase; }
+
   /* aged-paper overlays — antique only */
   #grain{
     position:absolute; inset:0; pointer-events:none; z-index:3; mix-blend-mode:multiply; opacity:.5;
@@ -370,6 +379,7 @@
 <body class="theme-antique">
 
 <div id="map"></div>
+<canvas id="wind"></canvas>
 <div id="grain"></div>
 <div id="vignette"></div>
 
@@ -398,6 +408,7 @@
 
     <h1 id="loc-name">RUSTON</h1>
     <p class="tagline" id="loc-sub">Louisiana, United States</p>
+    <div id="loc-alerts"></div>
     <div class="flourish">&#10087;</div>
 
     <div id="cond-sec" style="display:none">
@@ -434,7 +445,9 @@
     into a three-dimensional cloud deck &mdash; the taller a column stands, the colder and higher
     its top. <i>Rain, last 24 h</i> raises a column from the ground wherever rain has fallen
     since this hour yesterday &mdash; the taller and deeper its color, the more water came down.
-    Tap anywhere on the map for the forecast there.</p>
+    <i>Wind flow</i> sets the air itself moving as drifting trails, and <i>Alerts</i> outlines
+    active National Weather Service warnings (United States) in their conventional colors &mdash;
+    tap one for its particulars. Any warnings for the chosen place appear beneath its name.</p>
 
     <h2>Display</h2>
     <div class="toggles">
@@ -443,6 +456,8 @@
       <label>Radar <input type="checkbox" id="tg-radar" checked></label>
       <label>Cloud tops (3-D) <input type="checkbox" id="tg-clouds"></label>
       <label>Rain, last 24 h (3-D) <input type="checkbox" id="tg-rain"></label>
+      <label>Wind flow <input type="checkbox" id="tg-wind"></label>
+      <label>Severe weather alerts <input type="checkbox" id="tg-alerts"></label>
     </div>
 
     <h2>Appearance</h2>
@@ -465,7 +480,8 @@
     <div class="credits">
       Forecast from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> &middot;
       radar by <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a> &middot;
-      cloud tops from GOES &amp; Himawari infrared via <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api" target="_blank" rel="noopener">NASA&nbsp;GIBS</a>.<br>
+      cloud tops from GOES &amp; Himawari infrared via <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api" target="_blank" rel="noopener">NASA&nbsp;GIBS</a> &middot;
+      alerts from the <a href="https://www.weather.gov/" target="_blank" rel="noopener">National&nbsp;Weather&nbsp;Service</a>.<br>
       Streets, waters &amp; names from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
       contributors, served by <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>.<br>
       Elevations from USGS&nbsp;3DEP &amp; SRTM via <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Terrain&nbsp;Tiles on AWS</a> (Mapzen).<br>
@@ -536,6 +552,8 @@
   var CLOUD = { fc:{ type:'FeatureCollection', features:[] }, building:false, moveTimer:null };
   /* 24-hour rainfall columns — built later from an Open-Meteo grid sample */
   var RAIN = { fc:{ type:'FeatureCollection', features:[] }, building:false, cache:{} };
+  /* NWS severe weather alert polygons (United States) */
+  var ALERTS = { fc:{ type:'FeatureCollection', features:[] }, loaded:0, building:false };
 
   /* ---------- five palettes, one layer structure ---------- */
   var PALETTES = {
@@ -882,6 +900,13 @@
           'text-variable-anchor':['left','right','top','bottom'],
           'text-radial-offset':0.85, 'text-justify':'auto', 'text-max-width':9 },
         paint:{ 'text-color':P.lmText, 'text-halo-color':P.lmHalo, 'text-halo-width':1.9 } },
+      { id:'alert-fill', type:'fill', source:'alerts',
+        layout:{ visibility:'none' },
+        paint:{ 'fill-color':['get','col'], 'fill-opacity':0.13 } },
+      { id:'alert-line', type:'line', source:'alerts',
+        layout:{ visibility:'none', 'line-join':'round' },
+        paint:{ 'line-color':['get','col'], 'line-width':2.2,
+                'line-dasharray':[2.2, 1.6], 'line-opacity':0.9 } },
       { id:'rain-deck', type:'fill-extrusion', source:'rain24',
         layout:{ visibility:'none' },
         paint:{ 'fill-extrusion-color':['interpolate',['linear'],['get','q'],
@@ -934,7 +959,8 @@
         'contours-dense': { type:'vector', tiles:[contourTilesDense], maxzoom:15 },
         spot: { type:'geojson', data:locGeo() },
         clouds: { type:'geojson', data:CLOUD.fc },
-        rain24: { type:'geojson', data:RAIN.fc }
+        rain24: { type:'geojson', data:RAIN.fc },
+        alerts: { type:'geojson', data:ALERTS.fc }
       },
       layers: layers
     };
@@ -1283,36 +1309,48 @@
     var b = map.getBounds(), c = map.getCenter();
     var w = Math.max(b.getWest(), c.lng - 10), e = Math.min(b.getEast(), c.lng + 10);
     var s = Math.max(b.getSouth(), c.lat - 7, -80), n = Math.min(b.getNorth(), c.lat + 7, 80);
-    var cols = 16, dLon = (e - w) / cols;
-    var rows = Math.max(4, Math.min(12, Math.round((n - s) / dLon)));
+    /* sample up to 20×14 model points (the models resolve ~0.1°, so stop there) */
+    var cols = Math.max(4, Math.min(20, Math.round((e - w) / 0.08)));
+    var dLon = (e - w) / cols;
+    var rows = Math.max(3, Math.min(14, Math.round((n - s) / dLon)));
     var dLat = (n - s) / rows;
     var key = [w.toFixed(1), e.toFixed(1), s.toFixed(1), n.toFixed(1),
                Math.floor(Date.now() / 3600000)].join('|');
-    function render(cells){
-      var feats = [];
-      cells.forEach(function(cl){
-        if (cl.mm < 0.5) return;
-        var h = 1200 + 14000 * Math.pow(Math.min(1, cl.mm / 75), 0.6);
-        var inX = dLon * 0.04, inY = dLat * 0.04;   /* hairline gaps between the columns */
+    /* render at 3× the sampled grid, bilinearly interpolated between model points */
+    function render(g){
+      var SUB = 3, sw = g.dLon / SUB, sh = g.dLat / SUB;
+      function val(fr, fc){
+        var x = Math.min(Math.max(fc - 0.5, 0), g.cols - 1),
+            y = Math.min(Math.max(fr - 0.5, 0), g.rows - 1);
+        var c0 = Math.floor(x), r0 = Math.floor(y);
+        var c1 = Math.min(c0 + 1, g.cols - 1), r1 = Math.min(r0 + 1, g.rows - 1);
+        var tx = x - c0, ty = y - r0;
+        return g.V[r0][c0] * (1 - tx) * (1 - ty) + g.V[r0][c1] * tx * (1 - ty) +
+               g.V[r1][c0] * (1 - tx) * ty + g.V[r1][c1] * tx * ty;
+      }
+      var feats = [], inX = sw * 0.07, inY = sh * 0.07;
+      for (var r = 0; r < g.rows * SUB; r++) for (var cc = 0; cc < g.cols * SUB; cc++) {
+        var mm = val((r + 0.5) / SUB, (cc + 0.5) / SUB);
+        if (mm < 0.5) continue;
+        var h = 1200 + 14000 * Math.pow(Math.min(1, mm / 75), 0.6);
+        var w0 = g.w + cc * sw, s0 = g.s + r * sh;
         feats.push({ type:'Feature',
-          properties:{ q:Math.min(1, cl.mm / 50), h:h, mm:+cl.mm.toFixed(1) },
+          properties:{ q:Math.min(1, mm / 50), h:h, mm:+mm.toFixed(1) },
           geometry:{ type:'Polygon', coordinates:[[
-            [cl.w + inX, cl.s + inY], [cl.e - inX, cl.s + inY],
-            [cl.e - inX, cl.n - inY], [cl.w + inX, cl.n - inY],
-            [cl.w + inX, cl.s + inY]]] } });
-      });
+            [w0 + inX, s0 + inY], [w0 + sw - inX, s0 + inY],
+            [w0 + sw - inX, s0 + sh - inY], [w0 + inX, s0 + sh - inY],
+            [w0 + inX, s0 + inY]]] } });
+      }
       RAIN.fc = { type:'FeatureCollection', features:feats };
       if (map.getSource('rain24')) map.getSource('rain24').setData(RAIN.fc);
     }
     if (RAIN.cache[key]) { render(RAIN.cache[key]); return; }
     var pts = [];
     for (var r = 0; r < rows; r++) for (var cc = 0; cc < cols; cc++) {
-      pts.push({ lat:s + (r + 0.5) * dLat, lon:w + (cc + 0.5) * dLon,
-                 w:w + cc * dLon, e:w + (cc + 1) * dLon,
-                 s:s + r * dLat, n:s + (r + 1) * dLat });
+      pts.push({ lat:s + (r + 0.5) * dLat, lon:w + (cc + 0.5) * dLon });
     }
     RAIN.building = true;
-    var cells = [], chunks = [];
+    var vals = [], chunks = [];
     for (var k = 0; k < pts.length; k += 100) chunks.push(pts.slice(k, k + 100));
     var chain = Promise.resolve();
     chunks.forEach(function(chunk){
@@ -1324,19 +1362,20 @@
           .then(function(r){ return r.json(); })
           .then(function(j){
             var arr = Array.isArray(j) ? j : [j];
-            arr.forEach(function(loc, i){
-              if (chunk[i] && loc && loc.hourly) chunk[i].mm = sum24(loc.hourly);
-              else if (chunk[i]) chunk[i].mm = 0;
+            chunk.forEach(function(p, i){
+              vals.push(arr[i] && arr[i].hourly ? sum24(arr[i].hourly) : 0);
             });
-            cells = cells.concat(chunk);
           });
       });
     });
     chain.then(function(){
       RAIN.building = false;
+      var V = [];
+      for (var r2 = 0; r2 < rows; r2++) V.push(vals.slice(r2 * cols, (r2 + 1) * cols));
+      var grid = { V:V, rows:rows, cols:cols, w:w, s:s, dLon:dLon, dLat:dLat };
       RAIN.cache = {};            /* keep just the freshest grid */
-      RAIN.cache[key] = cells;
-      if (rainOn()) render(cells);
+      RAIN.cache[key] = grid;
+      if (rainOn()) render(grid);
     }).catch(function(){ RAIN.building = false; });
   }
   document.getElementById('tg-rain').addEventListener('change', function(){
@@ -1347,13 +1386,185 @@
     if (this.checked) rebuildRain();
   });
 
+  /* ---------- wind flow: the air drawn as drifting particle trails ----------
+     An Open-Meteo grid gives the current 10 m wind; particles ride the
+     bilinearly-interpolated field on a canvas above the map. */
+  var WIND = { grid:null, parts:[], raf:0, col:'#38bdf8', colTick:0, building:false, key:'' };
+  var windCv = document.getElementById('wind'), windCtx = windCv.getContext('2d');
+  function windOn(){ return document.getElementById('tg-wind').checked; }
+  function sizeWind(){
+    var dpr = Math.min(2, window.devicePixelRatio || 1);
+    windCv.width = windCv.clientWidth * dpr;
+    windCv.height = windCv.clientHeight * dpr;
+    windCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  }
+  sizeWind();
+  window.addEventListener('resize', sizeWind);
+  function windVal(lon, lat){
+    var g = WIND.grid;
+    if (!g || lon < g.w || lon > g.e || lat < g.s || lat > g.n) return null;
+    var x = Math.min(Math.max((lon - g.w) / g.dLon - 0.5, 0), g.cols - 1),
+        y = Math.min(Math.max((g.n - lat) / g.dLat - 0.5, 0), g.rows - 1);
+    var c0 = Math.floor(x), r0 = Math.floor(y);
+    var c1 = Math.min(c0 + 1, g.cols - 1), r1 = Math.min(r0 + 1, g.rows - 1);
+    var tx = x - c0, ty = y - r0;
+    function bi(M){
+      return M[r0][c0] * (1 - tx) * (1 - ty) + M[r0][c1] * tx * (1 - ty) +
+             M[r1][c0] * (1 - tx) * ty + M[r1][c1] * tx * ty;
+    }
+    return [bi(g.U), bi(g.V)];
+  }
+  function windSpawn(p){
+    var g = WIND.grid;
+    p.lon = g.w + Math.random() * (g.e - g.w);
+    p.lat = g.s + Math.random() * (g.n - g.s);
+    p.life = 60 + Math.random() * 140;
+  }
+  function windLoop(){
+    WIND.raf = 0;
+    if (!windOn() || document.hidden || !WIND.grid) return;
+    if (--WIND.colTick <= 0) {
+      WIND.col = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#38bdf8';
+      WIND.colTick = 120;
+    }
+    windCtx.globalCompositeOperation = 'destination-in';
+    windCtx.fillStyle = 'rgba(0,0,0,0.93)';
+    windCtx.fillRect(0, 0, windCv.clientWidth, windCv.clientHeight);
+    windCtx.globalCompositeOperation = 'source-over';
+    windCtx.strokeStyle = WIND.col;
+    windCtx.lineWidth = 1.2;
+    windCtx.lineCap = 'round';
+    var degPerPx = 360 / (512 * Math.pow(2, map.getZoom()));
+    var k = degPerPx * 0.13;             /* ~1.3 px/frame at 10 m/s, any zoom */
+    WIND.parts.forEach(function(p){
+      var uv = windVal(p.lon, p.lat);
+      if (!uv || --p.life <= 0) { windSpawn(p); return; }
+      var spd = Math.sqrt(uv[0] * uv[0] + uv[1] * uv[1]);
+      var lon2 = p.lon + uv[0] * k / Math.max(0.2, Math.cos(p.lat * Math.PI / 180));
+      var lat2 = p.lat + uv[1] * k;
+      var a = map.project([p.lon, p.lat]), b2 = map.project([lon2, lat2]);
+      if (Math.abs(b2.x - a.x) + Math.abs(b2.y - a.y) < 60) {
+        windCtx.globalAlpha = Math.min(0.85, 0.25 + spd / 22);
+        windCtx.beginPath();
+        windCtx.moveTo(a.x, a.y);
+        windCtx.lineTo(b2.x, b2.y);
+        windCtx.stroke();
+      }
+      p.lon = lon2; p.lat = lat2;
+    });
+    windCtx.globalAlpha = 1;
+    WIND.raf = requestAnimationFrame(windLoop);
+  }
+  function startWind(){ if (!WIND.raf && windOn() && WIND.grid) WIND.raf = requestAnimationFrame(windLoop); }
+  function rebuildWind(){
+    if (!windOn() || WIND.building) return;
+    var b = map.getBounds(), c = map.getCenter();
+    var w = Math.max(b.getWest(), c.lng - 12), e = Math.min(b.getEast(), c.lng + 12);
+    var s = Math.max(b.getSouth(), c.lat - 8, -80), n = Math.min(b.getNorth(), c.lat + 8, 80);
+    var key = [w.toFixed(1), e.toFixed(1), s.toFixed(1), n.toFixed(1),
+               Math.floor(Date.now() / 3600000)].join('|');
+    if (key === WIND.key && WIND.grid) { startWind(); return; }
+    var cols = 12, rows = 8, dLon = (e - w) / cols, dLat = (n - s) / rows;
+    var lats = [], lons = [];
+    for (var r = 0; r < rows; r++) for (var cc = 0; cc < cols; cc++) {
+      lats.push((n - (r + 0.5) * dLat).toFixed(3));
+      lons.push((w + (cc + 0.5) * dLon).toFixed(3));
+    }
+    WIND.building = true;
+    fetch('https://api.open-meteo.com/v1/forecast?latitude=' + lats.join(',') +
+          '&longitude=' + lons.join(',') +
+          '&current=wind_speed_10m,wind_direction_10m&wind_speed_unit=ms')
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        WIND.building = false;
+        var arr = Array.isArray(j) ? j : [j];
+        var U = [], V = [];
+        for (var r2 = 0; r2 < rows; r2++) { U.push([]); V.push([]); }
+        arr.forEach(function(loc, i){
+          var spd = (loc && loc.current && loc.current.wind_speed_10m) || 0;
+          var dir = (loc && loc.current && loc.current.wind_direction_10m) || 0;
+          var rad = dir * Math.PI / 180;
+          U[Math.floor(i / cols)].push(-Math.sin(rad) * spd);
+          V[Math.floor(i / cols)].push(-Math.cos(rad) * spd);
+        });
+        WIND.grid = { U:U, V:V, rows:rows, cols:cols, w:w, e:e, s:s, n:n, dLon:dLon, dLat:dLat };
+        WIND.key = key;
+        WIND.parts = [];
+        var count = Math.max(300, Math.min(900, Math.round(
+          windCv.clientWidth * windCv.clientHeight / 2800)));
+        for (var p = 0; p < count; p++) { var pt = {}; windSpawn(pt); WIND.parts.push(pt); }
+        startWind();
+      })
+      .catch(function(){ WIND.building = false; });
+  }
+  document.getElementById('tg-wind').addEventListener('change', function(){
+    if (this.checked) { rebuildWind(); }
+    else { windCtx.clearRect(0, 0, windCv.clientWidth, windCv.clientHeight); }
+  });
+  document.addEventListener('visibilitychange', function(){ if (!document.hidden) startWind(); });
+  map.on('move', function(){
+    windCtx.clearRect(0, 0, windCv.clientWidth, windCv.clientHeight);
+  });
+
+  /* ---------- severe weather alerts (National Weather Service, United States) ---------- */
+  var ALERT_COLORS = {
+    'Tornado Warning':'#e11d48', 'Tornado Watch':'#fb7185',
+    'Severe Thunderstorm Warning':'#f59e0b', 'Severe Thunderstorm Watch':'#fbbf24',
+    'Flash Flood Warning':'#15803d', 'Flash Flood Watch':'#4ade80',
+    'Flood Warning':'#22c55e', 'Flood Advisory':'#86efac', 'Flood Watch':'#a7f3d0',
+    'Hurricane Warning':'#be123c', 'Hurricane Watch':'#fb7185',
+    'Tropical Storm Warning':'#c2410c', 'Tropical Storm Watch':'#fdba74',
+    'Winter Storm Warning':'#7c3aed', 'Winter Storm Watch':'#a78bfa',
+    'Winter Weather Advisory':'#c4b5fd', 'Ice Storm Warning':'#9d174d',
+    'High Wind Warning':'#ea580c', 'Wind Advisory':'#fdba74',
+    'Extreme Heat Warning':'#dc2626', 'Heat Advisory':'#f87171',
+    'Dense Fog Advisory':'#94a3b8', 'Special Weather Statement':'#38bdf8'
+  };
+  function alertsOn(){ return document.getElementById('tg-alerts').checked; }
+  function rebuildAlerts(){
+    if (!alertsOn() || ALERTS.building) return;
+    if (Date.now() - ALERTS.loaded < 4 * 60 * 1000 && ALERTS.fc.features.length) return;
+    ALERTS.building = true;
+    fetch('https://api.weather.gov/alerts/active?status=actual', {
+        headers:{ Accept:'application/geo+json' } })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        ALERTS.building = false;
+        ALERTS.loaded = Date.now();
+        var feats = (j.features || []).filter(function(f){ return f.geometry; })
+          .map(function(f){
+            var p = f.properties || {};
+            return { type:'Feature', geometry:f.geometry, properties:{
+              col: ALERT_COLORS[p.event] || '#fbbf24',
+              event: p.event || 'Weather alert',
+              headline: p.headline || '',
+              ends: p.ends || p.expires || '' } };
+          });
+        ALERTS.fc = { type:'FeatureCollection', features:feats };
+        if (styleReady && map.getSource('alerts')) map.getSource('alerts').setData(ALERTS.fc);
+      })
+      .catch(function(){ ALERTS.building = false; });
+  }
+  document.getElementById('tg-alerts').addEventListener('change', function(){
+    if (!styleReady) return;
+    var v = this.checked ? 'visible' : 'none';
+    ['alert-fill','alert-line'].forEach(function(id){
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v);
+    });
+    if (this.checked) rebuildAlerts();
+  });
+
   map.on('moveend', function(){
     clearTimeout(CLOUD.moveTimer);
-    CLOUD.moveTimer = setTimeout(function(){ rebuildClouds(); rebuildRain(); }, 500);
+    CLOUD.moveTimer = setTimeout(function(){
+      rebuildClouds(); rebuildRain(); rebuildWind();
+    }, 500);
   });
   setInterval(function(){
     if (cloudsOn()) rebuildClouds();
     if (rainOn()) rebuildRain();
+    if (windOn()) { WIND.key = ''; rebuildWind(); }
+    if (alertsOn()) { ALERTS.loaded = 0; rebuildAlerts(); }
   }, 10 * 60 * 1000);
 
   /* ---------- runtime state re-applied after load & after every theme swap ---------- */
@@ -1375,8 +1586,13 @@
       if (map.getLayer('rain-deck')) {
         map.setLayoutProperty('rain-deck', 'visibility', rainOn() ? 'visible' : 'none');
       }
+      var av = alertsOn() ? 'visible' : 'none';
+      ['alert-fill','alert-line'].forEach(function(id){
+        if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', av);
+      });
       if (cloudsOn() && !CLOUD.fc.features.length) rebuildClouds();
       if (rainOn() && !RAIN.fc.features.length) rebuildRain();
+      if (alertsOn()) rebuildAlerts();
       buildRadarLayers();
       applyBrightness();
       applyRelief();
@@ -1622,8 +1838,36 @@
     document.getElementById('hr-sec').style.display = '';
   }
 
+  /* any NWS warnings standing over the chosen place, shown beneath its name */
+  function loadPointAlerts(){
+    var box = document.getElementById('loc-alerts');
+    box.innerHTML = '';
+    if (LOC.lat < 17 || LOC.lat > 72 || LOC.lon < -180 || LOC.lon > -64) return;  /* NWS is US-only */
+    fetch('https://api.weather.gov/alerts/active?status=actual&point=' +
+          LOC.lat.toFixed(3) + ',' + LOC.lon.toFixed(3),
+          { headers:{ Accept:'application/geo+json' } })
+      .then(function(r){ return r.json(); })
+      .then(function(j){
+        box.innerHTML = '';
+        (j.features || []).slice(0, 4).forEach(function(f){
+          var p = f.properties || {};
+          var col = ALERT_COLORS[p.event] || '#fbbf24';
+          var div = document.createElement('div');
+          div.className = 'alert-chip';
+          div.style.borderColor = col;
+          var until = p.ends || p.expires;
+          div.innerHTML = '<b style="color:' + col + '">' + (p.event || 'Weather alert') + '</b>' +
+            (until ? 'until ' + new Date(until).toLocaleString(undefined,
+              { weekday:'short', hour:'numeric', minute:'2-digit' }) : '');
+          box.appendChild(div);
+        });
+      })
+      .catch(function(){});
+  }
+
   function loadWeather(){
     if (!window.fetch) return;
+    loadPointAlerts();
     var key = 'almanac-wx-' + LOC.lat.toFixed(2) + ',' + LOC.lon.toFixed(2);
     try {
       var cached = JSON.parse(localStorage.getItem(key) || 'null');
@@ -1735,6 +1979,20 @@
   /* tap the map for the forecast there (ignore the second tap of a double-click zoom) */
   map.on('click', function(e){
     if (e.originalEvent && e.originalEvent.detail > 1) return;
+    if (alertsOn() && map.getLayer('alert-fill')) {
+      var hits = map.queryRenderedFeatures(e.point, { layers:['alert-fill'] });
+      if (hits.length) {
+        var ap = hits[0].properties;
+        var until = ap.ends ? new Date(ap.ends).toLocaleString(undefined,
+          { weekday:'short', hour:'numeric', minute:'2-digit' }) : '';
+        new maplibregl.Popup({ offset:8, maxWidth:'280px' })
+          .setLngLat(e.lngLat)
+          .setHTML('<h3 style="color:' + ap.col + '">' + ap.event + '</h3>' +
+                   '<p>' + (ap.headline || '') + (until ? '<br><i>until ' + until + '</i>' : '') + '</p>')
+          .addTo(map);
+        return;
+      }
+    }
     var lat = +e.lngLat.lat.toFixed(4), lon = +e.lngLat.wrap().lng.toFixed(4);
     setLocation({ name:'On the map',
       sub:Math.abs(lat).toFixed(3) + '°' + (lat >= 0 ? 'N' : 'S') + ', ' +
