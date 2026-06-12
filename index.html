@@ -441,7 +441,10 @@
     <h2>The Radar &amp; the Clouds</h2>
     <p class="small">The painted echoes are live radar &mdash; the last two hours and a half-hour
     nowcast, draped over the terrain itself. Use the bar beneath the map to play the loop or
-    slide through time. Switch on <i>Cloud tops</i> to loft the latest infrared satellite view
+    slide through time. <i>Doppler velocity</i> paints the wind the radar itself measures,
+    from the nearest Weather Service station &mdash; green air moving toward the radar, red away;
+    a tight green-red couplet is rotation (best read with Radar switched off, United States
+    only). Switch on <i>Cloud tops</i> to loft the latest infrared satellite view
     into a three-dimensional cloud deck &mdash; the taller a column stands, the colder and higher
     its top. <i>Rain, last 24 h</i> raises a column from the ground wherever rain has fallen
     since this hour yesterday &mdash; the taller and deeper its color, the more water came down.
@@ -454,6 +457,7 @@
       <label>Raised terrain (3-D) <input type="checkbox" id="tg-terrain" checked></label>
       <label>Contour lines <input type="checkbox" id="tg-contours" checked></label>
       <label>Radar <input type="checkbox" id="tg-radar" checked></label>
+      <label>Doppler velocity <input type="checkbox" id="tg-velocity"></label>
       <label>Cloud tops (3-D) <input type="checkbox" id="tg-clouds"></label>
       <label>Rain, last 24 h (3-D) <input type="checkbox" id="tg-rain"></label>
       <label>Wind flow <input type="checkbox" id="tg-wind"></label>
@@ -481,7 +485,8 @@
       Forecast from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> &middot;
       radar by <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a> &middot;
       cloud tops from GOES &amp; Himawari infrared via <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api" target="_blank" rel="noopener">NASA&nbsp;GIBS</a> &middot;
-      alerts from the <a href="https://www.weather.gov/" target="_blank" rel="noopener">National&nbsp;Weather&nbsp;Service</a>.<br>
+      alerts from the <a href="https://www.weather.gov/" target="_blank" rel="noopener">National&nbsp;Weather&nbsp;Service</a> &middot;
+      Doppler velocity (NEXRAD) via the <a href="https://mesonet.agron.iastate.edu/" target="_blank" rel="noopener">Iowa&nbsp;Environmental&nbsp;Mesonet</a>.<br>
       Streets, waters &amp; names from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
       contributors, served by <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>.<br>
       Elevations from USGS&nbsp;3DEP &amp; SRTM via <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Terrain&nbsp;Tiles on AWS</a> (Mapzen).<br>
@@ -1073,6 +1078,9 @@
   function applyRadarOpacity(){
     oRadar.textContent = slRadar.value + '%';
     setFrame(RADAR.idx);
+    if (styleReady && map.getLayer('velocity')) {
+      map.setPaintProperty('velocity', 'raster-opacity', +slRadar.value / 100);
+    }
   }
   slBright.addEventListener('input', function(){ applyBrightness(); savePrefs(); });
   slRelief.addEventListener('input', function(){ applyRelief(); savePrefs(); });
@@ -1173,6 +1181,62 @@
   }
   loadRadarFrames();
   setInterval(loadRadarFrames, 5 * 60 * 1000);
+
+  /* ---------- Doppler velocity from the nearest Weather Service radar ----------
+     Base velocity is radial — measured toward or away from one radar — so there is
+     no national mosaic. We keep the WSR-88D station list aboard, find the nearest
+     to the view, and drape its latest N0U scan (Iowa Environmental Mesonet tiles):
+     green air approaches the radar, red recedes. */
+  var NEXRAD_SITES = ('ABC,-161.87,60.78;ABR,-98.41,45.46;ABX,-106.82,35.15;ACG,-135.52,56.85;AEC,-165.28,64.50;AHG,-151.35,60.72;AIH,-146.30,59.45;AKC,-156.62,58.67;AKQ,-77.01,36.98;AMA,-101.71,35.23;AMX,-80.41,25.61;APD,-147.50,65.03;APX,-84.72,44.91;ARX,-91.19,43.82;ATX,-122.50,48.20;BBX,-121.63,39.50;BGM,-75.98,42.20;BHX,-124.29,40.50;BIS,-100.76,46.77;BLX,-108.61,45.85;BMX,-86.77,33.17;BOX,-71.14,41.96;BRO,-97.42,25.92;BUF,-78.74,42.95;BYX,-81.70,24.60;CAE,-81.12,33.95;CBW,-67.81,46.04;CBX,-116.24,43.49;CCX,-78.00,40.92;CLE,-81.86,41.41;CLX,-81.04,32.66;CRP,-97.51,27.78;CXX,-73.17,44.51;CYS,-104.81,41.15;DAX,-121.68,38.50;DDC,-99.97,37.76;DFX,-100.28,29.27;DGX,-89.98,32.28;DIX,-74.41,39.95;DLH,-92.21,46.84;DMX,-93.72,41.73;DOX,-75.44,38.83;DTX,-83.47,42.70;DVN,-90.58,41.61;DYX,-99.25,32.54;EAX,-94.26,38.81;EMX,-110.63,31.89;ENX,-74.06,42.59;EOX,-85.46,31.46;EPZ,-106.70,31.87;ESX,-114.89,35.70;EVX,-85.92,30.57;EWX,-98.03,29.70;EYX,-117.56,35.10;FCX,-80.27,37.02;FDR,-98.98,34.36;FDX,-103.62,34.63;FFC,-84.57,33.36;FSD,-96.73,43.59;FSX,-111.20,34.57;FTG,-104.55,39.79;FWS,-97.30,32.57;GGW,-106.62,48.21;GJX,-108.21,39.06;GLD,-101.70,39.37;GRB,-88.11,44.50;GRK,-97.38,30.72;GRR,-85.55,42.89;GSP,-82.22,34.88;GUA,144.80,13.45;GWX,-88.33,33.90;GYX,-70.26,43.89;HDC,-90.41,30.52;HDX,-106.12,33.08;HGX,-95.08,29.47;HKI,-159.55,21.88;HKM,-155.77,20.12;HMO,-157.17,21.12;HNX,-119.63,36.31;HPX,-87.28,36.74;HTX,-86.08,34.93;HWA,-155.57,19.08;ICT,-97.44,37.65;ICX,-112.86,37.59;ILN,-83.82,39.42;ILX,-89.34,40.15;IND,-86.28,39.71;INX,-95.56,36.17;IWA,-111.67,33.29;IWX,-85.70,41.36;JAX,-81.70,30.48;JGX,-83.35,32.67;JKL,-83.31,37.59;JUA,-66.07,18.10;KJK,126.62,35.92;KSG,127.28,37.21;LBB,-101.81,33.65;LCH,-93.22,30.12;LGX,-124.11,47.12;LIX,-89.83,30.34;LNX,-100.58,41.96;LOT,-88.08,41.60;LRX,-116.80,40.74;LSX,-90.68,38.70;LTX,-78.43,33.99;LVX,-85.94,37.98;LWX,-77.49,38.98;LZK,-92.26,34.84;MAF,-102.19,31.94;MAX,-122.72,42.08;MBX,-100.86,48.39;MHX,-76.88,34.78;MKX,-88.55,42.97;MLB,-80.65,28.11;MOB,-88.24,30.68;MPX,-93.56,44.85;MQT,-87.55,46.53;MRX,-83.40,36.17;MSX,-113.99,47.04;MTX,-112.45,41.26;MUX,-121.90,37.16;MVX,-97.33,47.53;MXX,-85.79,32.54;NKX,-117.04,32.92;NQA,-89.87,35.34;OAX,-96.37,41.32;ODN,127.77,26.36;OHX,-86.56,36.25;OKX,-72.86,40.87;OTX,-117.63,47.68;PAH,-88.77,37.07;PBZ,-80.22,40.53;PDT,-118.85,45.69;POE,-92.98,31.16;PUX,-104.18,38.46;RAX,-78.49,35.66;RGX,-119.46,39.75;RIW,-108.48,43.07;RLX,-81.72,38.31;RTX,-122.97,45.72;SFX,-112.69,43.11;SGF,-93.40,37.23;SHV,-93.84,32.45;SJT,-100.49,31.37;SOX,-117.64,33.82;SRX,-94.36,35.29;TBW,-82.40,27.70;TFX,-111.39,47.46;TLH,-84.33,30.40;TLX,-97.28,35.33;TWX,-96.23,39.00;TYX,-75.68,43.76;UDX,-102.83,44.12;UEX,-98.44,40.32;VAX,-83.00,30.89;VBX,-120.40,34.84;VNX,-98.13,36.74;VTX,-119.18,34.41;VWX,-87.72,38.26;YUX,-114.66,32.49')
+    .split(';').map(function(s){
+      var p = s.split(',');
+      return { id:p[0], lon:+p[1], lat:+p[2] };
+    });
+  var VEL = { site:null };
+  function velocityOn(){ return document.getElementById('tg-velocity').checked; }
+  function nearestNexrad(){
+    var c = map.getCenter(), best = null, bd = 1e9;
+    var k = Math.max(0.2, Math.cos(c.lat * Math.PI / 180));
+    NEXRAD_SITES.forEach(function(s){
+      var dx = (((s.lon - c.lng + 540) % 360) - 180) * k, dy = s.lat - c.lat;
+      var d = dx * dx + dy * dy;
+      if (d < bd) { bd = d; best = s; }
+    });
+    return bd <= 16 ? best : null;   /* nothing within ~4° — no radar to show */
+  }
+  function velocityUrl(site){
+    return 'https://mesonet.agron.iastate.edu/cache/tile.py/1.0.0/ridge::' + site.id +
+           '-N0U-0/{z}/{x}/{y}.png?t=' + Math.floor(Date.now() / 300000);
+  }
+  function ensureVelocity(force){
+    if (!styleReady) return;
+    try {
+      var want = velocityOn() ? nearestNexrad() : null;
+      if (!want) {
+        if (map.getLayer('velocity')) map.setLayoutProperty('velocity', 'visibility', 'none');
+        return;
+      }
+      if (force || !VEL.site || VEL.site.id !== want.id) {
+        if (map.getLayer('velocity')) map.removeLayer('velocity');
+        if (map.getSource('velocity')) map.removeSource('velocity');
+      }
+      VEL.site = want;
+      if (!map.getSource('velocity')) {
+        map.addSource('velocity', { type:'raster', tiles:[velocityUrl(want)],
+                                    tileSize:256, maxzoom:12 });
+      }
+      if (!map.getLayer('velocity')) {
+        map.addLayer({ id:'velocity', type:'raster', source:'velocity',
+          paint:{ 'raster-opacity':+slRadar.value / 100, 'raster-fade-duration':150 } },
+          'lbl-road');
+      }
+      map.setLayoutProperty('velocity', 'visibility', 'visible');
+    } catch (err) {}
+  }
+  document.getElementById('tg-velocity').addEventListener('change', function(){
+    ensureVelocity(false);
+  });
+  setInterval(function(){ if (velocityOn()) ensureVelocity(true); }, 5 * 60 * 1000);
 
   /* ---------- cloud tops: latest GOES/Himawari infrared, lofted into 3-D ----------
      Each geostationary disc is served by NASA GIBS as colorized "clean infrared":
@@ -1557,7 +1621,7 @@
   map.on('moveend', function(){
     clearTimeout(CLOUD.moveTimer);
     CLOUD.moveTimer = setTimeout(function(){
-      rebuildClouds(); rebuildRain(); rebuildWind();
+      rebuildClouds(); rebuildRain(); rebuildWind(); ensureVelocity(false);
     }, 500);
   });
   setInterval(function(){
@@ -1594,6 +1658,7 @@
       if (rainOn() && !RAIN.fc.features.length) rebuildRain();
       if (alertsOn()) rebuildAlerts();
       buildRadarLayers();
+      ensureVelocity(false);
       applyBrightness();
       applyRelief();
     } catch (err) {}

@@ -21,6 +21,11 @@ The foundation (theme system, conditions card, vendored MapLibre setup) is porte
   Open-Meteo's hourly precipitation (past day), bilinearly interpolated to 3× the
   sampled resolution, and each wet cell raises a column from the ground — height
   and color deepen with accumulation (~1 km for a trace, ~15 km for 75 mm+).
+- **Doppler velocity** — the latest base-velocity (N0U) scan from the nearest
+  WSR-88D, via [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/)
+  tiles (no key). Base velocity is radial to one radar, so the chart carries the
+  full station list and switches radars as you pan. Green approaches, red recedes;
+  a tight couplet is rotation. US (plus a few overseas DoD sites) only.
 - **Wind flow** — the current 10 m wind field, drawn as drifting particle trails
   riding a bilinearly-interpolated Open-Meteo grid, tinted in each edition's ink.
 - **Severe weather alerts** — active National Weather Service warning polygons
@@ -55,6 +60,7 @@ python3 -m http.server 8000   # then visit http://localhost:8000
 | Radar | [RainViewer public API](https://www.rainviewer.com/api.html) (past 2 h + nowcast, no key) |
 | Cloud tops | GOES-East/West & Himawari Band 13 infrared via [NASA GIBS](https://www.earthdata.nasa.gov/) WMTS (no key) |
 | Severe weather alerts | [NWS alerts API](https://www.weather.gov/documentation/services-web-api) (no key, US only) |
+| Doppler velocity | NEXRAD N0U tiles via [IEM](https://mesonet.agron.iastate.edu/ogc/) (no key, US only) |
 | Forecast, geocoding | [Open-Meteo](https://open-meteo.com/) (no key) |
 | Rendering | [MapLibre GL JS](https://maplibre.org) with hand-written styles (vendored in `vendor/`) |
 | Typefaces | EB Garamond, IM Fell English, Inter & Space Grotesk via Google Fonts |
