@@ -1373,10 +1373,14 @@
     var b = map.getBounds(), c = map.getCenter();
     var w = Math.max(b.getWest(), c.lng - 10), e = Math.min(b.getEast(), c.lng + 10);
     var s = Math.max(b.getSouth(), c.lat - 7, -80), n = Math.min(b.getNorth(), c.lat + 7, 80);
-    /* sample up to 20×14 model points (the models resolve ~0.1°, so stop there) */
+    /* sample up to 20×18 model points (the models resolve ~0.1°, so stop there) */
     var cols = Math.max(4, Math.min(20, Math.round((e - w) / 0.08)));
     var dLon = (e - w) / cols;
-    var rows = Math.max(3, Math.min(14, Math.round((n - s) / dLon)));
+    /* a degree of longitude is cos(lat) the size of a degree of latitude, and
+       Mercator stretches north–south by the same factor — shrink the cell's
+       latitude span by cos(lat) so the columns stand square on screen */
+    var sq = dLon * Math.max(0.2, Math.cos(c.lat * Math.PI / 180));
+    var rows = Math.max(3, Math.min(18, Math.round((n - s) / sq)));
     var dLat = (n - s) / rows;
     var key = [w.toFixed(1), e.toFixed(1), s.toFixed(1), n.toFixed(1),
                Math.floor(Date.now() / 3600000)].join('|');
