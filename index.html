@@ -427,16 +427,19 @@
       <div class="facts" id="sun-facts"></div>
     </div>
 
-    <h2>The Radar</h2>
+    <h2>The Radar &amp; the Clouds</h2>
     <p class="small">The painted echoes are live radar &mdash; the last two hours and a half-hour
     nowcast, draped over the terrain itself. Use the bar beneath the map to play the loop or
-    slide through time. Tap anywhere on the map for the forecast there.</p>
+    slide through time. Switch on <i>Cloud tops</i> to loft the latest infrared satellite view
+    into a three-dimensional cloud deck &mdash; the taller a column stands, the colder and higher
+    its top. Tap anywhere on the map for the forecast there.</p>
 
     <h2>Display</h2>
     <div class="toggles">
       <label>Raised terrain (3-D) <input type="checkbox" id="tg-terrain" checked></label>
       <label>Contour lines <input type="checkbox" id="tg-contours" checked></label>
       <label>Radar <input type="checkbox" id="tg-radar" checked></label>
+      <label>Cloud tops (3-D) <input type="checkbox" id="tg-clouds"></label>
     </div>
 
     <h2>Appearance</h2>
@@ -458,7 +461,8 @@
 
     <div class="credits">
       Forecast from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> &middot;
-      radar by <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a>.<br>
+      radar by <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a> &middot;
+      cloud tops from GOES &amp; Himawari infrared via <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api" target="_blank" rel="noopener">NASA&nbsp;GIBS</a>.<br>
       Streets, waters &amp; names from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
       contributors, served by <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>.<br>
       Elevations from USGS&nbsp;3DEP &amp; SRTM via <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Terrain&nbsp;Tiles on AWS</a> (Mapzen).<br>
@@ -525,6 +529,9 @@
   var RELIEF_STOPS = [0,'#3a7d74', 250,'#5d976e', 600,'#8db174', 1100,'#c0bd80',
                       1800,'#d3b574', 2600,'#c79a60', 3600,'#b97f50'];
 
+  /* lofted cloud tops — built later from live GOES/Himawari infrared pixels */
+  var CLOUD = { fc:{ type:'FeatureCollection', features:[] }, building:false, moveTimer:null };
+
   /* ---------- five palettes, one layer structure ---------- */
   var PALETTES = {
     antique: {
@@ -546,6 +553,7 @@
       waterText:'#54776f', poiText:'#71603f', poiFont:'Noto Sans Italic',
       hoodText:'#86714b', hoodFont:'Noto Sans Italic', villageText:'#594a30', townText:'#4a3a26',
       lmText:'#3f3322', lmHalo:'#f6eed9', lmStroke:'#3f3322', lmDot:'#9a3b2e',
+      cloudLow:'#e9dfc5', cloudHigh:'#fbf7ec',
       sky:{ 'sky-color':'#e6d9b8','horizon-color':'#efe5cd','fog-color':'#efe5cd',
             'sky-horizon-blend':0.8,'horizon-fog-blend':0.6 }
     },
@@ -568,6 +576,7 @@
       waterText:'#6fb3d2', poiText:'#76828f', poiFont:'Noto Sans Regular',
       hoodText:'#5f6c7c', hoodFont:'Noto Sans Regular', villageText:'#9aa7b5', townText:'#dde4ec',
       lmText:'#eef2f6', lmHalo:'#0b0d10', lmStroke:'#0b0d10', lmDot:'#38bdf8',
+      cloudLow:'#6b7d91', cloudHigh:'#dfeaf4',
       sky:{ 'sky-color':'#0a1420','horizon-color':'#16222e','fog-color':'#0e1114',
             'sky-horizon-blend':0.8,'horizon-fog-blend':0.6 }
     }
@@ -592,6 +601,7 @@
     waterText:'#8fd9ff', poiText:'#46586a',
     hoodText:'#3e576c', villageText:'#7c95a8', townText:'#bcd6e8',
     lmText:'#e2f0fa', lmHalo:'#070a10', lmStroke:'#070a10', lmDot:'#38bdf8',
+    cloudLow:'#54799a', cloudHigh:'#c7e7fa',
     sky:{ 'sky-color':'#04070c','horizon-color':'#0a141d','fog-color':'#070a10',
           'sky-horizon-blend':0.8,'horizon-fog-blend':0.6 },
     waterGlow:'rgba(56,189,248,0.45)', waterBoost:2.4
@@ -861,7 +871,13 @@
           'text-transform':'uppercase', 'text-letter-spacing':0.06,
           'text-variable-anchor':['left','right','top','bottom'],
           'text-radial-offset':0.85, 'text-justify':'auto', 'text-max-width':9 },
-        paint:{ 'text-color':P.lmText, 'text-halo-color':P.lmHalo, 'text-halo-width':1.9 } });
+        paint:{ 'text-color':P.lmText, 'text-halo-color':P.lmHalo, 'text-halo-width':1.9 } },
+      { id:'cloud-deck', type:'fill-extrusion', source:'clouds',
+        layout:{ visibility:'none' },
+        paint:{ 'fill-extrusion-color':['interpolate',['linear'],['get','s'],
+                  0, P.cloudLow, 5, P.cloudHigh],
+                'fill-extrusion-height':['get','h'], 'fill-extrusion-base':['get','b'],
+                'fill-extrusion-opacity':0.78 } });
 
     if (P.reliefRamp) {
       layers.splice(1, 0, { id:'color-relief', type:'color-relief', source:'relief-dem',
@@ -900,7 +916,8 @@
           tiles:[demSource.sharedDemProtocolUrl], tileSize:256, maxzoom:13 },
         contours: { type:'vector', tiles:[contourTiles], maxzoom:15 },
         'contours-dense': { type:'vector', tiles:[contourTilesDense], maxzoom:15 },
-        spot: { type:'geojson', data:locGeo() }
+        spot: { type:'geojson', data:locGeo() },
+        clouds: { type:'geojson', data:CLOUD.fc }
       },
       layers: layers
     };
@@ -1114,6 +1131,125 @@
   loadRadarFrames();
   setInterval(loadRadarFrames, 5 * 60 * 1000);
 
+  /* ---------- cloud tops: latest GOES/Himawari infrared, lofted into 3-D ----------
+     Each geostationary disc is served by NASA GIBS as colorized "clean infrared":
+     gray = warm ground or low cloud, then cyan→green→yellow→red→deep blue as the
+     tops get colder (higher). We sample the pixels of the tiles covering the view
+     and extrude one quad per sample, height from the decoded brightness. */
+  var GIBS_DISCS = [
+    { lon:-75,  layer:'GOES-East_ABI_Band13_Clean_Infrared' },
+    { lon:-137, layer:'GOES-West_ABI_Band13_Clean_Infrared' },
+    { lon:140.7, layer:'Himawari_AHI_Band13_Clean_Infrared' }
+  ];
+  function cloudsOn(){ return document.getElementById('tg-clouds').checked; }
+  function gibsUrl(layer, z, x, y){
+    return 'https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/' + layer +
+           '/default/default/GoogleMapsCompatible_Level6/' + z + '/' + y + '/' + x +
+           '.png?v=' + Math.floor(Date.now() / 600000);
+  }
+  /* decode one pixel of the IR enhancement into [stage 0..5, top m, base m] */
+  function cloudDecode(r, g, b, a){
+    if (a < 200) return null;
+    if (Math.max(Math.abs(r - g), Math.abs(g - b), Math.abs(r - b)) < 16) {
+      if (r < 135) return null;                       /* warm ground, no significant cloud */
+      var t = Math.min(1, (r - 135) / 75);            /* gray deck: light = cooler = higher */
+      var h = 1600 + 5600 * t;
+      return [t * 1.6, h, 500 + h * 0.62];
+    }
+    var s, h2;
+    if (b > 140 && g > 140 && r < 110) { s = 2.2; h2 = 9200; }        /* cyan */
+    else if (g > 120 && b < 110 && r < 140) { s = 2.8; h2 = 10800; }  /* green */
+    else if (r > 180 && g > 150 && b < 120) { s = 3.4; h2 = 12400; }  /* yellow */
+    else if (r > 140 && g <= 150)      { s = 4.2; h2 = 13800; }       /* orange / red */
+    else if (b > 90 && r < 110)        { s = 5;   h2 = 15400; }       /* deep blue — overshooting */
+    else                               { s = 4;   h2 = 13000; }
+    return [s, h2, 1400 + h2 * 0.15];                 /* deep convection hangs low */
+  }
+  function mercLat(gy, world){
+    var n = Math.PI - 2 * Math.PI * gy / world;
+    return 180 / Math.PI * Math.atan(Math.sinh(n));
+  }
+  function rebuildClouds(){
+    if (!styleReady || !cloudsOn() || CLOUD.building) return;
+    var zm = map.getZoom();
+    var z = zm >= 7.5 ? 6 : zm >= 5 ? 5 : zm >= 3.5 ? 4 : 3;
+    var bnds = map.getBounds();
+    var c = map.getCenter();
+    var w = Math.max(bnds.getWest(), c.lng - 14), e = Math.min(bnds.getEast(), c.lng + 14);
+    var sLat = Math.max(bnds.getSouth(), c.lat - 9, -82), nLat = Math.min(bnds.getNorth(), c.lat + 9, 82);
+    var disc = GIBS_DISCS[0], best = 1e9;
+    GIBS_DISCS.forEach(function(d){
+      var dd = Math.abs(((c.lng - d.lon + 540) % 360) - 180);
+      if (dd < best) { best = dd; disc = d; }
+    });
+    var n2 = Math.pow(2, z), world = 256 * n2;
+    function tx(lon){ return Math.floor((lon + 180) / 360 * n2); }
+    function ty(lat){
+      var rad = lat * Math.PI / 180;
+      return Math.floor((1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n2);
+    }
+    var x0 = tx(w), x1 = tx(e), y0 = ty(nLat), y1 = ty(sLat);
+    while ((x1 - x0 + 1) * (y1 - y0 + 1) > 16 && z > 2) {  /* cap the fetch */
+      z--; n2 /= 2; world /= 2;
+      x0 = tx(w); x1 = tx(e); y0 = ty(nLat); y1 = ty(sLat);
+    }
+    CLOUD.building = true;
+    var jobs = [];
+    for (var xx = x0; xx <= x1; xx++) for (var yy = y0; yy <= y1; yy++) (function(xx, yy){
+      if (xx < 0 || xx >= n2 || yy < 0 || yy >= n2) return;
+      jobs.push(new Promise(function(resolve){
+        var img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function(){ resolve({ x:xx, y:yy, img:img }); };
+        img.onerror = function(){ resolve(null); };
+        img.src = gibsUrl(disc.layer, z, xx, yy);
+      }));
+    })(xx, yy);
+    Promise.all(jobs).then(function(tiles){
+      CLOUD.building = false;
+      if (!cloudsOn()) return;
+      var step = Math.max(2, Math.min(24, Math.round((x1 - x0 + 1) * 256 / 110)));
+      var cv = document.createElement('canvas');
+      cv.width = 256; cv.height = 256;
+      var ctx = cv.getContext('2d', { willReadFrequently:true });
+      var feats = [];
+      tiles.forEach(function(t){
+        if (!t) return;
+        ctx.clearRect(0, 0, 256, 256);
+        try { ctx.drawImage(t.img, 0, 0); } catch (err) { return; }
+        var data;
+        try { data = ctx.getImageData(0, 0, 256, 256).data; } catch (err) { return; }
+        for (var py = 0; py < 256; py += step) for (var px = 0; px < 256; px += step) {
+          var mx = Math.min(255, px + (step >> 1)), my = Math.min(255, py + (step >> 1));
+          var i4 = (my * 256 + mx) * 4;
+          var d = cloudDecode(data[i4], data[i4 + 1], data[i4 + 2], data[i4 + 3]);
+          if (!d) continue;
+          var gx = t.x * 256 + px, gy = t.y * 256 + py;
+          var lon0 = gx / world * 360 - 180, lon1 = (gx + step) / world * 360 - 180;
+          var lat0 = mercLat(gy, world), lat1 = mercLat(gy + step, world);
+          if (lon1 < w || lon0 > e || lat0 < sLat || lat1 > nLat) continue;
+          feats.push({ type:'Feature', properties:{ s:d[0], h:d[1], b:d[2] },
+            geometry:{ type:'Polygon', coordinates:[[
+              [lon0, lat0], [lon1, lat0], [lon1, lat1], [lon0, lat1], [lon0, lat0]]] } });
+        }
+      });
+      CLOUD.fc = { type:'FeatureCollection', features:feats };
+      if (map.getSource('clouds')) map.getSource('clouds').setData(CLOUD.fc);
+    });
+  }
+  document.getElementById('tg-clouds').addEventListener('change', function(){
+    if (!styleReady) return;
+    if (map.getLayer('cloud-deck')) {
+      map.setLayoutProperty('cloud-deck', 'visibility', this.checked ? 'visible' : 'none');
+    }
+    if (this.checked) rebuildClouds();
+  });
+  map.on('moveend', function(){
+    clearTimeout(CLOUD.moveTimer);
+    CLOUD.moveTimer = setTimeout(rebuildClouds, 500);
+  });
+  setInterval(function(){ if (cloudsOn()) rebuildClouds(); }, 10 * 60 * 1000);
+
   /* ---------- runtime state re-applied after load & after every theme swap ---------- */
   function applyRuntime(){
     styleReady = true;
@@ -1127,6 +1263,10 @@
       ['contour-minor','contour-major','contour-label'].forEach(function(id){
         if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', cv);
       });
+      if (map.getLayer('cloud-deck')) {
+        map.setLayoutProperty('cloud-deck', 'visibility', cloudsOn() ? 'visible' : 'none');
+      }
+      if (cloudsOn() && !CLOUD.fc.features.length) rebuildClouds();
       buildRadarLayers();
       applyBrightness();
       applyRelief();

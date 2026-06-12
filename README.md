@@ -12,6 +12,11 @@ The foundation (theme system, conditions card, vendored MapLibre setup) is porte
   scrub with the bar beneath the map. (RainViewer's public cache serves one fixed
   palette up to z7; the chart shares those tiles across all editions and overzooms
   past z7.)
+- **Cloud tops in 3-D** — the latest GOES-East/West or Himawari "clean infrared"
+  imagery from [NASA GIBS](https://www.earthdata.nasa.gov/) (no key), decoded
+  pixel-by-pixel in the browser and lofted into an extruded cloud deck — the colder
+  the top, the taller the column (flat decks ~2 km, overshooting storm tops ~15 km).
+  Rebuilds as you pan; refreshes every ten minutes.
 - **Forecast** — current conditions, a 48-hour temperature/rain-chance chart, the week
   ahead, and sun & moon, all from [Open-Meteo](https://open-meteo.com/) (no key).
 - **Anywhere** — search any place on Earth, use your location, or tap the map for the
@@ -39,6 +44,7 @@ python3 -m http.server 8000   # then visit http://localhost:8000
 | Elevation (3-D terrain, hillshade) | [Terrain Tiles on AWS](https://registry.opendata.aws/terrain-tiles/) — USGS 3DEP / SRTM, Mapzen terrarium encoding |
 | Contour lines | Generated in the browser from the same DEM by [maplibre-contour](https://github.com/onthegomap/maplibre-contour) |
 | Radar | [RainViewer public API](https://www.rainviewer.com/api.html) (past 2 h + nowcast, no key) |
+| Cloud tops | GOES-East/West & Himawari Band 13 infrared via [NASA GIBS](https://www.earthdata.nasa.gov/) WMTS (no key) |
 | Forecast, geocoding | [Open-Meteo](https://open-meteo.com/) (no key) |
 | Rendering | [MapLibre GL JS](https://maplibre.org) with hand-written styles (vendored in `vendor/`) |
 | Typefaces | EB Garamond, IM Fell English, Inter & Space Grotesk via Google Fonts |
