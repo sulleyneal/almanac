@@ -351,6 +351,10 @@
   body.ui-modern .maplibregl-ctrl-group{ border-radius:12px; box-shadow:0 8px 24px rgba(0,0,0,.4); }
   .maplibregl-ctrl-group button{ background:transparent; border-radius:0 !important; }
   .maplibregl-ctrl-group button + button{ border-top:1px solid var(--rule); }
+  #ctrl-locate{ display:flex; align-items:center; justify-content:center; color:var(--ink-soft); }
+  #ctrl-locate:hover{ color:var(--accent); }
+  .maplibregl-ctrl-group.locating #ctrl-locate{ color:var(--accent); animation:loc-pulse 1s ease-in-out infinite; }
+  @keyframes loc-pulse{ 0%,100%{ opacity:1 } 50%{ opacity:.35 } }
   body.mode-dark .maplibregl-ctrl button .maplibregl-ctrl-icon{ filter:invert(.9); }
   .maplibregl-ctrl-scale{
     background:var(--panel-bg); border-color:var(--ink-soft); color:var(--ink);
@@ -990,6 +994,34 @@
       '<a href="https://openfreemap.org" target="_blank">OpenFreeMap</a> &middot; Radar: <a href="https://www.rainviewer.com/" target="_blank">RainViewer</a> &middot; Terrain: <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank">Mapzen/AWS</a> (USGS, SRTM)' }
   });
   map.addControl(new maplibregl.NavigationControl({ visualizePitch:true }), 'top-right');
+
+  /* a target button on the map — runs the same locate path as the panel button */
+  function LocateControl(){}
+  LocateControl.prototype.onAdd = function(){
+    var div = document.createElement('div');
+    div.className = 'maplibregl-ctrl maplibregl-ctrl-group';
+    var btn = document.createElement('button');
+    btn.type = 'button';
+    btn.id = 'ctrl-locate';
+    btn.title = 'Use my location';
+    btn.setAttribute('aria-label', 'Use my location');
+    btn.innerHTML = '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">' +
+      '<g fill="none" stroke="currentColor" stroke-width="2">' +
+      '<circle cx="12" cy="12" r="5"/>' +
+      '<line x1="12" y1="1" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="23"/>' +
+      '<line x1="1" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="23" y2="12"/>' +
+      '</g><circle cx="12" cy="12" r="1.8" fill="currentColor"/></svg>';
+    btn.addEventListener('click', function(){
+      locateMe(function(){ div.classList.add('locating'); },
+               function(){ div.classList.remove('locating'); });
+    });
+    div.appendChild(btn);
+    this._div = div;
+    return div;
+  };
+  LocateControl.prototype.onRemove = function(){ this._div.remove(); };
+  map.addControl(new LocateControl(), 'top-right');
+
   map.addControl(new maplibregl.ScaleControl({ unit:'imperial', maxWidth:110 }), 'bottom-left');
   if (!isNarrow) map.addControl(new maplibregl.ScaleControl({ unit:'metric', maxWidth:110 }), 'bottom-left');
 
@@ -2037,17 +2069,26 @@
     if (!document.getElementById('loc-box').contains(e.target)) hideResults();
   });
 
-  document.getElementById('btn-locate').addEventListener('click', function(){
-    if (!navigator.geolocation) return;
-    var btn = this;
-    btn.textContent = 'Finding you…';
+  /* shared by the panel button and the on-map target control */
+  var locating = false;
+  function locateMe(onStart, onDone){
+    if (!navigator.geolocation || locating) return;
+    locating = true;
+    if (onStart) onStart();
     navigator.geolocation.getCurrentPosition(function(pos){
-      btn.textContent = 'Use my location';
+      locating = false;
+      if (onDone) onDone();
       setLocation({ name:'My Location', sub:'',
         lat:+pos.coords.latitude.toFixed(4), lon:+pos.coords.longitude.toFixed(4) }, true);
     }, function(){
-      btn.textContent = 'Use my location';
+      locating = false;
+      if (onDone) onDone();
     }, { enableHighAccuracy:false, timeout:10000 });
+  }
+  document.getElementById('btn-locate').addEventListener('click', function(){
+    var btn = this;
+    locateMe(function(){ btn.textContent = 'Finding you…'; },
+             function(){ btn.textContent = 'Use my location'; });
   });
 
   document.getElementById('btn-reset').addEventListener('click', function(){
