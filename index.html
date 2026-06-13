@@ -522,12 +522,15 @@
 
   var EXAGGERATION = 2.0;
   var isNarrow = Math.min(window.innerWidth, window.innerHeight) < 500;
+  /* captured before MapLibre's hash:true writes the camera into the URL */
+  var hadInitialHash = !!(window.location && window.location.hash);
 
   /* ---------- the place under the glass ---------- */
   var LOC = { name:'Ruston', sub:'Louisiana, United States', lat:32.5232, lon:-92.6379 };
+  var freshVisit = true;
   try {
     var savedLoc = JSON.parse(localStorage.getItem('almanac-loc') || 'null');
-    if (savedLoc && typeof savedLoc.lat === 'number') LOC = savedLoc;
+    if (savedLoc && typeof savedLoc.lat === 'number') { LOC = savedLoc; freshVisit = false; }
   } catch (err) {}
 
   function homeView(){
@@ -2085,11 +2088,26 @@
       if (onDone) onDone();
     }, { enableHighAccuracy:false, timeout:10000 });
   }
-  document.getElementById('btn-locate').addEventListener('click', function(){
-    var btn = this;
-    locateMe(function(){ btn.textContent = 'Finding you…'; },
-             function(){ btn.textContent = 'Use my location'; });
+  var locBtn = document.getElementById('btn-locate');
+  locBtn.addEventListener('click', function(){
+    locateMe(function(){ locBtn.textContent = 'Finding you…'; },
+             function(){ locBtn.textContent = 'Use my location'; });
   });
+
+  /* on the very first visit (no saved place, no shared-link hash), offer to
+     center on the viewer — the browser asks permission; if declined or it
+     fails, the default chart simply stays put */
+  if (freshVisit && !hadInitialHash) {
+    var locDiv = function(){ var b = document.getElementById('ctrl-locate');
+      return b ? b.closest('.maplibregl-ctrl-group') : null; };
+    locateMe(function(){
+      locBtn.textContent = 'Finding you…';
+      var d = locDiv(); if (d) d.classList.add('locating');
+    }, function(){
+      locBtn.textContent = 'Use my location';
+      var d = locDiv(); if (d) d.classList.remove('locating');
+    });
+  }
 
   document.getElementById('btn-reset').addEventListener('click', function(){
     HOME = homeView();

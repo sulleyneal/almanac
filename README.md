@@ -33,8 +33,10 @@ The foundation (theme system, conditions card, vendored MapLibre setup) is porte
   warnings over the chosen place appear as chips beneath its name in the panel.
 - **Forecast** — current conditions, a 48-hour temperature/rain-chance chart, the week
   ahead, and sun & moon, all from [Open-Meteo](https://open-meteo.com/) (no key).
-- **Anywhere** — search any place on Earth, use your location, or tap the map for the
-  forecast at that point. The last place and edition are remembered.
+- **Anywhere** — on a first visit it offers to center on your location; after that
+  search any place on Earth, tap the on-map target, or tap the map for the forecast
+  at that point. The last place and edition are remembered (and a shared link's view
+  is always respected over auto-locate).
 - **Terrain** — 3-D relief, hillshade and browser-generated contours from USGS/SRTM
   elevation tiles, with height/shading sliders.
 
