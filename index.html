@@ -527,10 +527,20 @@
 
   /* ---------- the place under the glass ---------- */
   var LOC = { name:'Ruston', sub:'Louisiana, United States', lat:32.5232, lon:-92.6379 };
-  var freshVisit = true;
   try {
     var savedLoc = JSON.parse(localStorage.getItem('almanac-loc') || 'null');
-    if (savedLoc && typeof savedLoc.lat === 'number') { LOC = savedLoc; freshVisit = false; }
+    if (savedLoc && typeof savedLoc.lat === 'number') LOC = savedLoc;
+  } catch (err) {}
+
+  /* a fresh launch of the app is a new session — sessionStorage is empty after
+     the app is fully closed and reopened, but survives reloads within a session.
+     On every new instance we snap to current GPS; within a session we keep the
+     place in view. (The last place above is the initial view until GPS resolves,
+     and the fallback if it's declined.) */
+  var newInstance = true;
+  try {
+    if (sessionStorage.getItem('almanac-session')) newInstance = false;
+    sessionStorage.setItem('almanac-session', '1');
   } catch (err) {}
 
   function homeView(){
@@ -2094,10 +2104,10 @@
              function(){ locBtn.textContent = 'Use my location'; });
   });
 
-  /* on the very first visit (no saved place, no shared-link hash), offer to
+  /* on every new launch (and the first visit), and absent a shared-link hash,
      center on the viewer — the browser asks permission; if declined or it
-     fails, the default chart simply stays put */
-  if (freshVisit && !hadInitialHash) {
+     fails, the last place (or default chart) simply stays put */
+  if (newInstance && !hadInitialHash) {
     var locDiv = function(){ var b = document.getElementById('ctrl-locate');
       return b ? b.closest('.maplibregl-ctrl-group') : null; };
     locateMe(function(){
