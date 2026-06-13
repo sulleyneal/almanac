@@ -1965,6 +1965,16 @@
     locName.className = LOC.name.length > 11 ? 'long' : '';
     locSub.textContent = LOC.sub || (LOC.lat.toFixed(3) + '°, ' + LOC.lon.toFixed(3) + '°');
   }
+  /* below 760px the panel is a bottom sheet (see the matching CSS media query) —
+     shift the target up by half its height so the place lands in the strip of
+     map still visible above it */
+  function panelIsSheet(){ return window.matchMedia('(max-width:760px)').matches; }
+  function flyOffset(){
+    if (!panelIsSheet()) return [0, 0];
+    var panel = document.getElementById('panel');
+    var ph = panel ? panel.offsetHeight : window.innerHeight * 0.46;
+    return [0, -ph / 2];
+  }
   function setLocation(next, fly){
     LOC = next;
     try { localStorage.setItem('almanac-loc', JSON.stringify(LOC)); } catch (err) {}
@@ -1973,7 +1983,8 @@
     if (fly) {
       HOME = homeView();
       map.flyTo({ center:[LOC.lon, LOC.lat], zoom:Math.max(map.getZoom(), 8.6),
-                  pitch:HOME.pitch, bearing:HOME.bearing, duration:2400, essential:true });
+                  pitch:HOME.pitch, bearing:HOME.bearing, offset:flyOffset(),
+                  duration:2400, essential:true });
     }
     loadWeather();
   }
@@ -2042,7 +2053,7 @@
   document.getElementById('btn-reset').addEventListener('click', function(){
     HOME = homeView();
     map.flyTo({ center:HOME.center, zoom:HOME.zoom, pitch:HOME.pitch,
-                bearing:HOME.bearing, duration:2000, essential:true });
+                bearing:HOME.bearing, offset:flyOffset(), duration:2000, essential:true });
   });
 
   /* tap the map for the forecast there (ignore the second tap of a double-click zoom) */
