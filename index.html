@@ -1170,6 +1170,7 @@
         }
         if (!map.getLayer(id)) {
           map.addLayer({ id:id, type:'raster', source:id,
+            layout:{ visibility:radarOn() ? 'visible' : 'none' },
             paint:{ 'raster-opacity':0, 'raster-fade-duration':0 } }, 'lbl-road');
         }
       });
@@ -1732,8 +1733,19 @@
   });
   document.getElementById('tg-radar').addEventListener('change', function(){
     radarBar.className = (this.checked && RADAR.frames.length) ? 'show' : '';
+    applyRadarVisibility();
     setFrame(RADAR.idx);
   });
+  /* hide/show the radar layers via visibility — unlike a raster-opacity change,
+     this reliably re-renders over the 3-D terrain, so toggling off clears at once */
+  function applyRadarVisibility(){
+    if (!styleReady) return;
+    var v = radarOn() ? 'visible' : 'none';
+    RADAR.frames.forEach(function(f, j){
+      var id = 'radar-' + j;
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v);
+    });
+  }
 
   /* ---------- theme switching, in place ---------- */
   var ED = {};
