@@ -1186,6 +1186,10 @@
         if (map.getLayer(id)) map.setPaintProperty(id, 'raster-opacity', j === RADAR.idx ? op : 0);
       });
     }
+    /* raster layers draped over 3-D terrain don't always redraw when the map is
+       idle, so an opacity change (e.g. toggling radar off) can linger on screen
+       until the next render — force one */
+    if (styleReady) map.triggerRepaint();
     var f = RADAR.frames[RADAR.idx];
     rbScrub.value = RADAR.idx;
     rbTime.textContent = new Date(f.time * 1000)
