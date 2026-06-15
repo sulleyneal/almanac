@@ -21,6 +21,7 @@ The foundation (theme system, conditions card, vendored MapLibre setup) is porte
   Open-Meteo's hourly precipitation (past day), bilinearly interpolated to 3× the
   sampled resolution, and each wet cell raises a column from the ground — height
   and color deepen with accumulation (~1 km for a trace, ~15 km for 75 mm+).
+  Tap a column for its exact 24-hour total in inches.
 - **Doppler velocity** — the latest base-velocity (N0U) scan from the nearest
   WSR-88D, via [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/)
   tiles (no key). Base velocity is radial to one radar, so the chart carries the

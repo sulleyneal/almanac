@@ -344,6 +344,10 @@
     box-shadow:0 6px 24px rgba(0,0,0,.4); padding:13px 15px 11px; max-width:255px;
   }
   body.ui-modern .maplibregl-popup-content{ -webkit-backdrop-filter:blur(14px); backdrop-filter:blur(14px); }
+  .maplibregl-popup-content h3{ margin:0 0 4px; font-family:var(--font-display);
+    font-size:18px; font-weight:600; letter-spacing:.01em; line-height:1.1; }
+  .maplibregl-popup-content p{ margin:0; font-size:13px; line-height:1.45; color:var(--ink-soft); }
+  .maplibregl-popup-content .pcat{ font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; }
   .maplibregl-popup-tip{ border-top-color:var(--pop-bg) !important; }
   .maplibregl-popup-close-button{ color:var(--ink-soft); font-size:18px; }
   .maplibregl-ctrl-group{ background:var(--panel-bg); border:1px solid var(--panel-border);
@@ -2156,6 +2160,21 @@
                    '<p>' + (ap.headline || '') + (until ? '<br><i>until ' + until + '</i>' : '') + '</p>')
           .addTo(map);
         return;
+      }
+    }
+    /* tapping a rain column reads out its 24-hour total (and still sets the spot below) */
+    if (rainOn() && map.getLayer('rain-deck')) {
+      var rh = map.queryRenderedFeatures(e.point, { layers:['rain-deck'] });
+      if (rh.length) {
+        var mm = rh[0].properties.mm, inch = mm / 25.4;
+        var amt = inch < 0.1 ? inch.toFixed(2) : inch.toFixed(inch < 1 ? 2 : 1);
+        var rc = getComputedStyle(document.body).getPropertyValue('--rain').trim() || '#38bdf8';
+        new maplibregl.Popup({ offset:8, maxWidth:'220px' })
+          .setLngLat(e.lngLat)
+          .setHTML('<h3 style="color:' + rc + '">' + amt + ' in</h3>' +
+                   '<p class="pcat">Rain &middot; last 24 hours<br>' +
+                   '<span style="opacity:.7">' + mm.toFixed(1) + ' mm</span></p>')
+          .addTo(map);
       }
     }
     var lat = +e.lngLat.lat.toFixed(4), lon = +e.lngLat.wrap().lng.toFixed(4);
