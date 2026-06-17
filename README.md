@@ -32,6 +32,11 @@ The foundation (theme system, conditions card, vendored MapLibre setup) is porte
 - **Severe weather alerts** — active National Weather Service warning polygons
   (United States) in their conventional colors; tap one for its headline. Any
   warnings over the chosen place appear as chips beneath its name in the panel.
+- **Hurricane tracking** — active tropical cyclones from the National Hurricane
+  Center (via NOAA's ArcGIS feature service, no key): the forecast cone of
+  uncertainty, the observed and forecast track, and each forecast position
+  (colored by Saffir-Simpson category, labeled with its stage letter; tap for
+  time, winds and pressure). Active storms are listed in the panel.
 - **Forecast** — current conditions, a 48-hour temperature/rain-chance chart, the week
   ahead, and sun & moon, all from [Open-Meteo](https://open-meteo.com/) (no key).
 - **Anywhere** — every fresh launch centers on your current location (browser
@@ -65,6 +70,7 @@ python3 -m http.server 8000   # then visit http://localhost:8000
 | Cloud tops | GOES-East/West & Himawari Band 13 infrared via [NASA GIBS](https://www.earthdata.nasa.gov/) WMTS (no key) |
 | Severe weather alerts | [NWS alerts API](https://www.weather.gov/documentation/services-web-api) (no key, US only) |
 | Doppler velocity | NEXRAD N0U tiles via [IEM](https://mesonet.agron.iastate.edu/ogc/) (no key, US only) |
+| Hurricanes | NHC Active Hurricanes via NOAA's [ArcGIS feature service](https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services) (no key) |
 | Forecast, geocoding | [Open-Meteo](https://open-meteo.com/) (no key) |
 | Rendering | [MapLibre GL JS](https://maplibre.org) with hand-written styles (vendored in `vendor/`) |
 | Typefaces | EB Garamond, IM Fell English, Inter & Space Grotesk via Google Fonts |

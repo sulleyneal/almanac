@@ -458,7 +458,10 @@
     since this hour yesterday &mdash; the taller and deeper its color, the more water came down.
     <i>Wind flow</i> sets the air itself moving as drifting trails, and <i>Alerts</i> outlines
     active National Weather Service warnings (United States) in their conventional colors &mdash;
-    tap one for its particulars. Any warnings for the chosen place appear beneath its name.</p>
+    tap one for its particulars. Any warnings for the chosen place appear beneath its name.
+    <i>Hurricane tracking</i> draws active tropical cyclones from the National Hurricane Center &mdash;
+    the forecast cone, the storm's past and projected track, and each forecast position
+    (tap one for its time, winds and category). Active storms are listed below the toggles.</p>
 
     <h2>Display</h2>
     <div class="toggles">
@@ -470,7 +473,9 @@
       <label>Rain, last 24 h (3-D) <input type="checkbox" id="tg-rain"></label>
       <label>Wind flow <input type="checkbox" id="tg-wind"></label>
       <label>Severe weather alerts <input type="checkbox" id="tg-alerts"></label>
+      <label>Hurricane tracking <input type="checkbox" id="tg-hurricane"></label>
     </div>
+    <div id="storm-list"></div>
 
     <h2>Appearance</h2>
     <div class="sliders">
@@ -494,7 +499,8 @@
       radar by <a href="https://www.rainviewer.com/" target="_blank" rel="noopener">RainViewer</a> &middot;
       cloud tops from GOES &amp; Himawari infrared via <a href="https://www.earthdata.nasa.gov/engage/open-data-services-software/earthdata-developer-portal/gibs-api" target="_blank" rel="noopener">NASA&nbsp;GIBS</a> &middot;
       alerts from the <a href="https://www.weather.gov/" target="_blank" rel="noopener">National&nbsp;Weather&nbsp;Service</a> &middot;
-      Doppler velocity (NEXRAD) via the <a href="https://mesonet.agron.iastate.edu/" target="_blank" rel="noopener">Iowa&nbsp;Environmental&nbsp;Mesonet</a>.<br>
+      Doppler velocity (NEXRAD) via the <a href="https://mesonet.agron.iastate.edu/" target="_blank" rel="noopener">Iowa&nbsp;Environmental&nbsp;Mesonet</a> &middot;
+      hurricanes from the <a href="https://www.nhc.noaa.gov/" target="_blank" rel="noopener">National&nbsp;Hurricane&nbsp;Center</a>.<br>
       Streets, waters &amp; names from <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
       contributors, served by <a href="https://openfreemap.org" target="_blank" rel="noopener">OpenFreeMap</a>.<br>
       Elevations from USGS&nbsp;3DEP &amp; SRTM via <a href="https://registry.opendata.aws/terrain-tiles/" target="_blank" rel="noopener">Terrain&nbsp;Tiles on AWS</a> (Mapzen).<br>
@@ -580,6 +586,10 @@
   var RAIN = { fc:{ type:'FeatureCollection', features:[] }, building:false, cache:{} };
   /* NWS severe weather alert polygons (United States) */
   var ALERTS = { fc:{ type:'FeatureCollection', features:[] }, loaded:0, building:false };
+  /* active tropical cyclones — cone, tracks and positions from the NHC (via NOAA's ArcGIS) */
+  function emptyFC(){ return { type:'FeatureCollection', features:[] }; }
+  var HURR = { cone:emptyFC(), trackF:emptyFC(), trackO:emptyFC(),
+               fpos:emptyFC(), opos:emptyFC(), storms:[], loaded:0, building:false };
 
   /* ---------- five palettes, one layer structure ---------- */
   var PALETTES = {
@@ -946,6 +956,37 @@
                 'fill-extrusion-height':['get','h'], 'fill-extrusion-base':['get','b'],
                 'fill-extrusion-opacity':0.78 } });
 
+    /* hurricane tracking — cone, tracks, positions (topmost so the storm reads clearly) */
+    var stormCol = ['interpolate',['linear'],['get','wind'],
+      0,'#9aa7b5', 39,'#5ad1e6', 74,'#fde047', 96,'#fb923c', 111,'#f43f5e', 130,'#c026d3'];
+    layers.push(
+      { id:'hurr-cone', type:'fill', source:'hurr-cone', layout:{ visibility:'none' },
+        paint:{ 'fill-color':'#94a3b8', 'fill-opacity':0.16 } },
+      { id:'hurr-cone-line', type:'line', source:'hurr-cone', layout:{ visibility:'none', 'line-join':'round' },
+        paint:{ 'line-color':P.townText, 'line-width':1.4, 'line-dasharray':[3,2], 'line-opacity':0.5 } },
+      { id:'hurr-tracko', type:'line', source:'hurr-tracko',
+        layout:{ visibility:'none', 'line-cap':'round', 'line-join':'round' },
+        paint:{ 'line-color':'#cbd5e1', 'line-width':2.4, 'line-opacity':0.85 } },
+      { id:'hurr-trackf', type:'line', source:'hurr-trackf',
+        layout:{ visibility:'none', 'line-cap':'round', 'line-join':'round' },
+        paint:{ 'line-color':'#f43f5e', 'line-width':2.6, 'line-dasharray':[1.6,1.4] } },
+      { id:'hurr-opos', type:'circle', source:'hurr-opos', layout:{ visibility:'none' },
+        paint:{ 'circle-radius':['interpolate',['linear'],['zoom'], 3,1.6, 7,3],
+                'circle-color':'#cbd5e1', 'circle-stroke-color':'#334155', 'circle-stroke-width':0.8 } },
+      { id:'hurr-fpos', type:'circle', source:'hurr-fpos', layout:{ visibility:'none' },
+        paint:{ 'circle-radius':['interpolate',['linear'],['zoom'], 3,5, 7,8],
+                'circle-color':stormCol, 'circle-stroke-color':'#0b0d10', 'circle-stroke-width':1.4 } },
+      { id:'hurr-fpos-label', type:'symbol', source:'hurr-fpos', layout:{ visibility:'none',
+          'text-field':['get','dvlbl'], 'text-font':['Noto Sans Bold'],
+          'text-size':['interpolate',['linear'],['zoom'], 3,8, 7,11], 'text-allow-overlap':true },
+        paint:{ 'text-color':'#0b0d10' } },
+      { id:'hurr-name', type:'symbol', source:'hurr-fpos',
+        layout:{ visibility:'none', 'text-field':['get','label'], 'text-font':['Noto Sans Bold'],
+          'text-size':['interpolate',['linear'],['zoom'], 3,11, 7,14], 'text-transform':'uppercase',
+          'text-letter-spacing':0.08, 'text-variable-anchor':['top','bottom','right','left'],
+          'text-radial-offset':1.1, 'text-justify':'auto', 'text-optional':true },
+        paint:{ 'text-color':P.townText, 'text-halo-color':P.bg, 'text-halo-width':2 } });
+
     if (P.reliefRamp) {
       layers.splice(1, 0, { id:'color-relief', type:'color-relief', source:'relief-dem',
         paint:{ 'color-relief-opacity':0.85,
@@ -986,7 +1027,12 @@
         spot: { type:'geojson', data:locGeo() },
         clouds: { type:'geojson', data:CLOUD.fc },
         rain24: { type:'geojson', data:RAIN.fc },
-        alerts: { type:'geojson', data:ALERTS.fc }
+        alerts: { type:'geojson', data:ALERTS.fc },
+        'hurr-cone': { type:'geojson', data:HURR.cone },
+        'hurr-trackf': { type:'geojson', data:HURR.trackF },
+        'hurr-tracko': { type:'geojson', data:HURR.trackO },
+        'hurr-fpos': { type:'geojson', data:HURR.fpos },
+        'hurr-opos': { type:'geojson', data:HURR.opos }
       },
       layers: layers
     };
@@ -1676,6 +1722,98 @@
     if (this.checked) rebuildAlerts();
   });
 
+  /* ---------- hurricane tracking (NHC active tropical cyclones, via NOAA ArcGIS) ---------- */
+  var HURR_SVC = 'https://services9.arcgis.com/RHVPKKiFTONKtxq3/arcgis/rest/services/' +
+                 'Active_Hurricanes_v1/FeatureServer';
+  var HURR_LAYERS = ['hurr-cone','hurr-cone-line','hurr-tracko','hurr-trackf',
+                     'hurr-opos','hurr-fpos','hurr-fpos-label','hurr-name'];
+  function hurricaneOn(){ return document.getElementById('tg-hurricane').checked; }
+  function hurrQuery(layerId){
+    return fetch(HURR_SVC + '/' + layerId + '/query?where=1%3D1&outFields=*&f=geojson')
+      .then(function(r){ return r.json(); })
+      .then(function(j){ return (j && j.features) ? j : emptyFC(); })
+      .catch(function(){ return emptyFC(); });
+  }
+  function applyHurrVisibility(){
+    if (!styleReady) return;
+    var v = hurricaneOn() ? 'visible' : 'none';
+    HURR_LAYERS.forEach(function(id){
+      if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', v);
+    });
+  }
+  function renderStormList(){
+    var box = document.getElementById('storm-list');
+    box.innerHTML = '';
+    if (!hurricaneOn()) return;
+    HURR.storms.forEach(function(s){
+      var div = document.createElement('div');
+      div.className = 'alert-chip';
+      div.style.borderColor = s.col;
+      div.innerHTML = '<b style="color:' + s.col + '">' + s.type + ' ' + s.name + '</b>' +
+        s.wind + ' mph' + (s.gust ? ' · gusts ' + s.gust : '') +
+        (s.adv ? '<br>' + s.adv : '');
+      box.appendChild(div);
+    });
+  }
+  function rebuildHurricanes(){
+    if (!hurricaneOn() || HURR.building) return;
+    if (Date.now() - HURR.loaded < 4 * 60 * 1000 && HURR.loaded) { applyHurrVisibility(); return; }
+    HURR.building = true;
+    Promise.all([hurrQuery(4), hurrQuery(2), hurrQuery(3), hurrQuery(0), hurrQuery(1)])
+      .then(function(res){
+        HURR.building = false;
+        HURR.loaded = Date.now();
+        HURR.cone = res[0]; HURR.trackF = res[1]; HURR.trackO = res[2];
+        /* annotate forecast points with a category color, the SS letter and a name label */
+        var fpos = res[3];
+        var maxAdvTau = -1, leadName = '';
+        fpos.features.forEach(function(f){
+          var p = f.properties || {};
+          p.wind = p.MAXWIND || 0;
+          p.dvlbl = p.DVLBL || '';
+        });
+        HURR.fpos = fpos;
+        HURR.opos = res[4];
+        /* summarise each storm from the cone features (one per storm) */
+        var SS = { '-1':'#5ad1e6','0':'#5ad1e6' };
+        HURR.storms = (res[0].features || []).map(function(f){
+          var p = f.properties || {};
+          var w = p.MAX_WIND || 0;
+          var typeName = w >= 74 ? (p.MAX_SS >= 3 ? 'Major Hurricane' : 'Hurricane')
+                       : w >= 39 ? 'Tropical Storm' : 'Tropical Depression';
+          var col = w >= 130 ? '#c026d3' : w >= 111 ? '#f43f5e' : w >= 96 ? '#fb923c'
+                  : w >= 74 ? '#fde047' : w >= 39 ? '#5ad1e6' : '#9aa7b5';
+          var adv = p.ADVDATE ? 'advisory ' + new Date(p.ADVDATE).toLocaleString(undefined,
+            { weekday:'short', hour:'numeric', minute:'2-digit' }) : '';
+          return { name:p.STORMNAME || 'Unnamed', type:typeName, wind:w,
+                   gust:p.MAX_GUST || 0, col:col, adv:adv };
+        });
+        /* put a single name label on the storm's first forecast point */
+        if (HURR.fpos.features.length && HURR.storms.length) {
+          var byStorm = {};
+          HURR.fpos.features.forEach(function(f){
+            var nm = (f.properties || {}).STORMNAME || '';
+            if (!byStorm[nm]) { byStorm[nm] = true; f.properties.label = nm; }
+            else f.properties.label = '';
+          });
+        }
+        ['hurr-cone','hurr-trackf','hurr-tracko','hurr-fpos','hurr-opos'].forEach(function(src){
+          var data = src === 'hurr-cone' ? HURR.cone : src === 'hurr-trackf' ? HURR.trackF
+                   : src === 'hurr-tracko' ? HURR.trackO : src === 'hurr-fpos' ? HURR.fpos : HURR.opos;
+          if (styleReady && map.getSource(src)) map.getSource(src).setData(data);
+        });
+        applyHurrVisibility();
+        renderStormList();
+      })
+      .catch(function(){ HURR.building = false; });
+  }
+  document.getElementById('tg-hurricane').addEventListener('change', function(){
+    if (!styleReady) return;
+    applyHurrVisibility();
+    renderStormList();
+    if (this.checked) rebuildHurricanes();
+  });
+
   map.on('moveend', function(){
     clearTimeout(CLOUD.moveTimer);
     CLOUD.moveTimer = setTimeout(function(){
@@ -1687,6 +1825,7 @@
     if (rainOn()) rebuildRain();
     if (windOn()) { WIND.key = ''; rebuildWind(); }
     if (alertsOn()) { ALERTS.loaded = 0; rebuildAlerts(); }
+    if (hurricaneOn()) { HURR.loaded = 0; rebuildHurricanes(); }
   }, 10 * 60 * 1000);
 
   /* ---------- runtime state re-applied after load & after every theme swap ---------- */
@@ -1712,9 +1851,11 @@
       ['alert-fill','alert-line'].forEach(function(id){
         if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', av);
       });
+      applyHurrVisibility();
       if (cloudsOn() && !CLOUD.fc.features.length) rebuildClouds();
       if (rainOn() && !RAIN.fc.features.length) rebuildRain();
       if (alertsOn()) rebuildAlerts();
+      if (hurricaneOn()) rebuildHurricanes();
       buildRadarLayers();
       ensureVelocity(false);
       applyBrightness();
@@ -2158,6 +2299,22 @@
           .setLngLat(e.lngLat)
           .setHTML('<h3 style="color:' + ap.col + '">' + ap.event + '</h3>' +
                    '<p>' + (ap.headline || '') + (until ? '<br><i>until ' + until + '</i>' : '') + '</p>')
+          .addTo(map);
+        return;
+      }
+    }
+    /* tapping a hurricane forecast position reads out its time, winds and category */
+    if (hurricaneOn() && map.getLayer('hurr-fpos')) {
+      var hh = map.queryRenderedFeatures(e.point, { layers:['hurr-fpos'] });
+      if (hh.length) {
+        var hp = hh[0].properties;
+        new maplibregl.Popup({ offset:10, maxWidth:'250px' })
+          .setLngLat(e.lngLat)
+          .setHTML('<h3>' + (hp.STORMNAME || 'Storm') + '</h3>' +
+                   '<p class="pcat">' + (hp.TCDVLP || '') + '</p>' +
+                   '<p>' + (hp.DATELBL || '') + '<br>' +
+                   Math.round(hp.MAXWIND) + ' mph' + (hp.GUST ? ' · gusts ' + Math.round(hp.GUST) : '') +
+                   (hp.MSLP && hp.MSLP < 9000 ? '<br>' + hp.MSLP + ' mb' : '') + '</p>')
           .addTo(map);
         return;
       }
