@@ -1500,10 +1500,12 @@
       for (var r = 0; r < g.rows * SUB; r++) for (var cc = 0; cc < g.cols * SUB; cc++) {
         var mm = val((r + 0.5) / SUB, (cc + 0.5) / SUB);
         if (mm < 0.5) continue;
-        var h = 1200 + 14000 * Math.pow(Math.min(1, mm / 75), 0.6);
+        /* log growth — no hard cap, so heavy totals (5 in ≈ 127 mm and beyond)
+           keep standing taller instead of all flattening at one ceiling */
+        var h = 1200 + 4200 * Math.log(1 + mm / 8);
         var w0 = g.w + cc * sw, s0 = g.s + r * sh;
         feats.push({ type:'Feature',
-          properties:{ q:Math.min(1, mm / 50), h:h, mm:+mm.toFixed(1) },
+          properties:{ q:Math.min(1, mm / 125), h:h, mm:+mm.toFixed(1) },
           geometry:{ type:'Polygon', coordinates:[[
             [w0 + inX, s0 + inY], [w0 + sw - inX, s0 + inY],
             [w0 + sw - inX, s0 + sh - inY], [w0 + inX, s0 + sh - inY],
