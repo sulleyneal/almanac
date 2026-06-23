@@ -20,7 +20,8 @@ The foundation (theme system, conditions card, vendored MapLibre setup) is porte
 - **Rain, last 24 h in 3-D** — a grid of points across the view is sampled from
   Open-Meteo's hourly precipitation (past day), bilinearly interpolated to 3× the
   sampled resolution, and each wet cell raises a column from the ground — height
-  and color deepen with accumulation (~1 km for a trace, ~15 km for 75 mm+).
+  and color deepen with accumulation on a logarithmic curve with no hard cap, so heavy
+  totals (5 in / 127 mm and beyond) keep standing taller instead of all flattening out.
   Tap a column for its exact 24-hour total in inches.
 - **Doppler velocity** — the latest base-velocity (N0U) scan from the nearest
   WSR-88D, via [Iowa Environmental Mesonet](https://mesonet.agron.iastate.edu/)
@@ -37,6 +38,12 @@ The foundation (theme system, conditions card, vendored MapLibre setup) is porte
   uncertainty, the observed and forecast track, and each forecast position
   (colored by Saffir-Simpson category, labeled with its stage letter; tap for
   time, winds and pressure). Active storms are listed in the panel.
+- **Draw on the map** — a pencil button (upper right) lets you sketch freehand in red
+  over the chart; strokes are anchored to the ground in lng/lat, so they ride the
+  terrain and stay put as you pan, zoom and switch editions. The bin beside it erases.
+- **Export a JPG** — the download button saves the present view (map, terrain, weather
+  layers, wind trails and any drawing) as a JPG. Some third-party raster tiles without
+  CORS headers can block the save; hide those layers and try again.
 - **Forecast** — current conditions, a 48-hour temperature/rain-chance chart, the week
   ahead, and sun & moon, all from [Open-Meteo](https://open-meteo.com/) (no key).
 - **Anywhere** — every fresh launch centers on your current location (browser
