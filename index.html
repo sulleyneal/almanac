@@ -78,6 +78,10 @@
     stroke-linecap:round; stroke-linejoin:round; }
   svg.moon-ph{ width:13px; height:13px; vertical-align:-1px; margin-right:4px; }
 
+  /* a slow layer build says so beside its own toggle */
+  label.inking::after{ content:'inking\2026'; color:var(--moon); font-style:italic;
+    font-size:10.5px; letter-spacing:.06em; margin-left:6px; }
+
   /* severe weather chips in the panel */
   .alert-chip{ margin:10px 0 0; padding:8px 11px 7px; font-size:12px; line-height:1.5;
     color:var(--paper); background:var(--ground-2); font-family:var(--font-data);
@@ -173,6 +177,7 @@
   }
   #loc-search::placeholder{ color:var(--moon); }
   #loc-search:focus{ border-color:var(--gold); }
+  #loc-search:focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
   #loc-results{
     list-style:none; margin:4px 0 0; padding:4px; position:absolute; left:0; right:0; z-index:9;
     background:var(--ground-2); border:1px solid var(--hairline); border-radius:var(--radius);
@@ -492,6 +497,8 @@
     nowcast, draped over the terrain itself. The dial beneath the map sets the whole day out as
     a ruler &mdash; night in ink, the sun's gold arc between its true rising and setting &mdash;
     and the blue window upon it is the loop itself: play it or slide through time.
+    (While fresh imagery is still arriving, the little tag reads <i>inking&hellip;</i> &mdash;
+    the almanac never passes off a half-drawn frame.)
     <i>Doppler velocity</i> paints the wind the radar itself measures,
     from the nearest Weather Service station &mdash; green air moving toward the radar, red away;
     a tight green-red couplet is rotation (best read with Radar switched off, United States
@@ -1493,7 +1500,8 @@
     if (styleReady) map.triggerRepaint();
     var f = RADAR.frames[RADAR.idx];
     rbScrub.value = RADAR.idx;
-    rbTime.textContent = placeClock(new Date(f.time * 1000),
+    /* with no forecast aboard the clock is a longitude estimate — say so */
+    rbTime.textContent = (WX ? '' : '\u2248 ') + placeClock(new Date(f.time * 1000),
       { hour:'numeric', minute:'2-digit' });
     rbTag.textContent = tagFor(RADAR.idx);
     updateDialMarker();
@@ -1842,6 +1850,14 @@
       if (!SWAPPING && map.getSource('clouds')) map.getSource('clouds').setData(CLOUD.fc);
     });
   }
+  /* the toggles admit a build in progress ("inking…") — a 30-second silent
+     sample read as a broken checkbox */
+  setInterval(function(){
+    var lc = document.getElementById('tg-clouds').closest('label');
+    var lr = document.getElementById('tg-rain').closest('label');
+    if (lc) lc.classList.toggle('inking', !!CLOUD.building && cloudsOn());
+    if (lr) lr.classList.toggle('inking', !!RAIN.building && rainOn());
+  }, 500);
   document.getElementById('tg-clouds').addEventListener('change', function(){
     if (!styleReady) return;
     if (map.getLayer('cloud-deck')) {
@@ -2784,6 +2800,10 @@
     WX = null;
     ['cond-sec', 'hr-sec', 'wk-sec', 'sun-sec'].forEach(function(id){
       document.getElementById(id).classList.add('pending');
+    });
+    /* and empty them — hidden stale figures must not sit under the new name */
+    ['hr-chart', 'wk-rows', 'sun-facts', 'cond-now', 'cond-rows'].forEach(function(id){
+      document.getElementById(id).innerHTML = '';
     });
     drawDayDial(); renderMasthead(); setFrame(RADAR.idx);
     if (styleReady && map.getSource('spot')) map.getSource('spot').setData(locGeo());

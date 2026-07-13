@@ -1,11 +1,32 @@
 # Visual overhaul — progress
 
-**Round:** 4 — round-3 findings fixed, critic round 4 in flight
-**State:** ▶ Round 3 confirmed every previous major stayed fixed (15-switch
-cycling with all layers: zero errors; corners clean; focus rings everywhere)
-and found 3 new majors + 9 minors, all in the clock-fallback and material
-department. All fixed and smoke-verified. Done = two consecutive zero-major
-rounds; round 4 is the first candidate.
+**Round:** 5 — ROUND 4 CAME BACK WITH ZERO MAJOR FINDINGS. Round 5 decides:
+a second consecutive zero-major round ends the loop.
+**State:** ▶ Round 4's seven minors triaged: five fixed, two accepted with
+rationale (below).
+
+## Round 4 (first clean round) — minors triaged
+Fixed:
+- Slow layer builds now say so: the cloud-tops and rain toggles show
+  "inking…" beside their labels while a build is in flight, and the §5 prose
+  explains what the tag means.
+- The search input (first tab stop) takes the full gold focus ring.
+- The estimated clock is marked: with no forecast aboard, the radar clock
+  prints "≈ 1:30 AM" instead of asserting the longitude guess as fact.
+- A relocation now empties the previous place's drawn sections outright —
+  no stale chart under a new heading, even in the DOM.
+Attempted and reverted:
+- A light-plate filter to drop the faintest cloud cells erased a real overcast
+  (midnight control showed a full deck where filtered antique showed clear
+  sky). Data fidelity wins: the filter is reverted; the light-plate deck keeps
+  the sheer grey-blue material from round 4.
+Accepted with rationale:
+- Cloud-tops tile seams: inherent to the per-cell IR sampling; softening
+  requires a resampling architecture, out of scope for a visual overhaul.
+- 9 px dial labels / 9.5 px radar tag: at the floor, not below it; crisp at
+  2× DPR; enlarging breaks the strip's proportions.
+- All-layers-on "pixel soup": user-chosen composition; the product does not
+  override an explicit choice.
 
 ## Round 3 critic findings → fixes (all landed)
 Majors:
@@ -138,4 +159,8 @@ Live smoke shot confirmed: tiles, forecast, Day-Dial sun arc, radar loop all rea
 - **Round 3** (full matrix, live data): 3 majors / 9 minors, all new — every
   round-1/2 major stayed fixed. Contract: 36 OK, 2 partial, 1 broken (the chip
   clock, fixed), hurricanes still unverifiable (zero storms on Earth).
-- **Round 4**: in flight — first candidate for the two-clean-rounds finish.
+- **Round 4** (full matrix, live data): **ZERO MAJORS** — 10 all-layer plate
+  swaps clean, clocks agree across 7 timezones, alert chip/popup/headline
+  agree verbatim, contract 40/41 OK (hurricanes: zero storms on Earth to
+  render). 7 minors: 5 fixed, 2 accepted (above).
+- **Round 5**: in flight — second consecutive zero-major round ends the loop.
