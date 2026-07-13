@@ -36,11 +36,17 @@
     --radius:6px;
   }
   /* per-edition plate tokens (map ground + JPG export fill only) */
-  body.theme-antique{ --bg:#e7dabb; --map-bg:#efe5cd; }
-  body.theme-midnight{ --bg:#0b0d10; --map-bg:#0e1114; }
-  body.theme-hydro{ --bg:#06080d; --map-bg:#070a10; }
-  body.theme-relief{ --bg:#e6e1d2; --map-bg:#f0ece0; }
-  body.theme-topo{ --bg:#e9e5d8; --map-bg:#f4f1e8; }
+  body.theme-antique{ --bg:#e7dabb; --map-bg:#efe5cd; --spot-dot:#9a3b2e; --spot-ring:#3f3322; }
+  body.theme-midnight{ --bg:#0b0d10; --map-bg:#0e1114; --spot-dot:#38bdf8; --spot-ring:#0b0d10;
+    --spot-glow:rgba(56,189,248,.5); }
+  body.theme-hydro{ --bg:#06080d; --map-bg:#070a10; --spot-dot:#38bdf8; --spot-ring:#070a10;
+    --spot-glow:rgba(56,189,248,.5); }
+  body.theme-relief{ --bg:#e6e1d2; --map-bg:#f0ece0; --spot-dot:#2e6f63; --spot-ring:#3f3322; }
+  body.theme-topo{ --bg:#e9e5d8; --map-bg:#f4f1e8; --spot-dot:#6b5635; --spot-ring:#3f3322; }
+  #spot-pin{ width:11px; height:11px; border-radius:50%; box-sizing:border-box;
+    background:var(--spot-dot); border:1.5px solid var(--spot-ring); }
+  body.theme-midnight #spot-pin, body.theme-hydro #spot-pin{
+    box-shadow:0 0 10px 4px var(--spot-glow); }
   body.mode-light #bright-row{ display:none; }
 
   *{ box-sizing:border-box }
@@ -49,6 +55,13 @@
     font-size:14px; overflow:hidden; }
 
   :focus-visible{ outline:2px solid var(--gold); outline-offset:2px; }
+  /* MapLibre's stylesheet styles keyboard focus with its own box-shadow reset —
+     restate the gold ring above it so every map control shows focus */
+  .maplibregl-ctrl button:focus-visible,
+  .maplibregl-ctrl-attrib summary:focus-visible{
+    outline:2px solid var(--gold) !important; outline-offset:-3px;
+    box-shadow:none !important;
+  }
   @media (prefers-reduced-motion:reduce){
     *, *::before, *::after{ animation:none !important; transition:none !important; }
   }
@@ -56,7 +69,9 @@
   #map{ position:absolute; inset:0; background:var(--map-bg); }
 
   /* wind flow — particle trails drawn above the map, beneath the chrome */
-  #wind{ position:absolute; inset:0; z-index:2; pointer-events:none; }
+  /* a canvas is a replaced element: inset alone leaves it at its intrinsic
+     bitmap size, so the layer must be stretched explicitly */
+  #wind{ position:absolute; inset:0; width:100%; height:100%; z-index:2; pointer-events:none; }
 
   /* weather-glyph strokes (drawn icon set, no emoji) */
   .wx-gl{ stroke:currentColor; fill:none; stroke-width:1.7;
@@ -258,7 +273,9 @@
   #warn{ display:none; margin-top:12px; font-size:12px; color:var(--alarm);
     border:1px dashed rgba(224,101,79,.5); border-radius:4px; padding:8px; }
 
-  /* cartouche — antique plate only */
+  /* cartouche — antique plate only; steps above the Day-Dial's band when the
+     dial is out, so the two never overlap */
+  body:has(#radar-bar.show) #cartouche{ bottom:132px; }
   #cartouche{
     position:absolute; right:18px; bottom:34px; z-index:4; pointer-events:none; display:none;
     background:var(--ground); color:var(--paper); border:1px solid var(--hairline);
@@ -277,9 +294,12 @@
      window in rain-blue, a gold needle at now. The controls beneath drive the
      same radar loop as ever. */
   #radar-bar{
-    position:absolute; z-index:5; bottom:20px; left:50%; transform:translateX(-50%);
+    /* centered on the plate (not the viewport), and narrow enough to clear the
+       scale bars on its left and the attribution mark on its right */
+    position:absolute; z-index:5; bottom:20px;
+    left:calc(392px + (100vw - 392px) / 2); transform:translateX(-50%);
     display:none; flex-direction:column; gap:5px; padding:10px 14px 9px;
-    width:min(620px, calc(100vw - 424px)); min-width:300px;
+    width:min(620px, calc(100vw - 392px - 320px)); min-width:300px;
     background:var(--ground); border:1px solid var(--hairline);
     border-radius:var(--radius); box-shadow:var(--shadow);
   }
@@ -354,6 +374,13 @@
   .maplibregl-ctrl-attrib{ background:rgba(33,43,58,.85) !important;
     font-family:var(--font-body); color:var(--moon); }
   .maplibregl-ctrl-attrib a{ color:var(--ink-soft) !important; }
+  /* the scale bars live left of the panel by default — move them onto the plate,
+     and lift them over the Day-Dial where the two would otherwise collide */
+  .maplibregl-ctrl-bottom-left{ left:392px; }
+  .maplibregl-ctrl-bottom-right{ z-index:6; }
+  @media (min-width:761px) and (max-width:1020px){
+    body:has(#radar-bar.show) .maplibregl-ctrl-bottom-left{ bottom:126px; }
+  }
 
   /* mobile: bottom sheet */
   @media (max-width:760px){
@@ -373,9 +400,11 @@
     #edition button{ padding:7px 8px 6px; font-size:9.5px; letter-spacing:.08em; flex:1; }
     #edition button::before{ content:none; }
     #edition button.on::after{ left:6px; right:6px; }
-    #radar-bar{ bottom:calc(46% + 12px); width:calc(100vw - 20px); min-width:0;
-      padding:8px 10px 7px; }
+    #radar-bar{ bottom:calc(46% + 12px); left:10px; transform:none;
+      width:calc(100vw - 20px); min-width:0; padding:8px 10px 7px; }
     #dd-strip{ height:40px; }
+    .maplibregl-ctrl-bottom-left{ left:0; bottom:calc(46% + 6px); }
+    body:has(#radar-bar.show) .maplibregl-ctrl-bottom-left{ bottom:calc(46% + 112px); }
   }
 </style>
 </head>
@@ -511,7 +540,7 @@
 </aside>
 
 <div id="radar-bar">
-  <svg id="dd-strip" aria-hidden="true"></svg>
+  <svg id="dd-strip" role="img" aria-label="Day dial"></svg>
   <div id="dd-controls">
     <button id="rb-play" aria-label="Play or pause the radar loop">&#10074;&#10074;</button>
     <input type="range" id="rb-scrub" min="0" max="0" value="0" aria-label="Radar time">
@@ -537,19 +566,36 @@
   var REDUCED = window.matchMedia &&
                 window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-  /* masthead date line — volume, day, and day-number of the year */
-  (function(){
-    var d = new Date();
-    var doy = Math.floor((d - new Date(d.getFullYear(), 0, 0)) / 864e5);
+  /* One clock: everything printed in the chrome keeps the CHOSEN PLACE's local
+     time (from the forecast's timezone), never the browser's — the dial, the
+     radar clock, the "as of" line and the masthead must all agree. */
+  function placeOffsetSec(){
+    return (typeof WX !== 'undefined' && WX && typeof WX.utc_offset_seconds === 'number')
+      ? WX.utc_offset_seconds : -new Date().getTimezoneOffset() * 60;
+  }
+  function placeClock(d, opts){
+    /* shift to the place's wall clock, then format the shifted instant as UTC */
+    var s = new Date(d.getTime() + placeOffsetSec() * 1000);
+    opts = Object.assign({ timeZone:'UTC' }, opts);
+    return s.toLocaleString(undefined, opts);
+  }
+
+  /* masthead date line — volume, day, and day-number of the year, all in the
+     chosen place's own calendar day */
+  function renderMasthead(){
+    var d = new Date(Date.now() + placeOffsetSec() * 1000);
+    var doy = Math.round((Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) -
+                          Date.UTC(d.getUTCFullYear(), 0, 0)) / 864e5);
     var R = [[1000,'M'],[900,'CM'],[500,'D'],[400,'CD'],[100,'C'],[90,'XC'],
              [50,'L'],[40,'XL'],[10,'X'],[9,'IX'],[5,'V'],[4,'IV'],[1,'I']];
-    var n = d.getFullYear(), vol = '';
+    var n = d.getUTCFullYear(), vol = '';
     R.forEach(function(p){ while (n >= p[0]) { vol += p[1]; n -= p[0]; } });
     document.getElementById('mast-date').textContent =
       'Vol. ' + vol + ' · ' +
-      d.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric' }) +
+      d.toLocaleDateString(undefined, { weekday:'long', month:'long', day:'numeric', timeZone:'UTC' }) +
       ' · Day ' + doy;
-  })();
+  }
+  renderMasthead();
 
   var glTest = document.createElement('canvas');
   if (!(glTest.getContext('webgl2') || glTest.getContext('webgl'))) {
@@ -604,7 +650,10 @@
     contourLayer: 'contours', elevationKey: 'ele', levelKey: 'level', overzoom: 1
   });
 
-  var RELIEF_STOPS = [0,'#3a7d74', 250,'#5d976e', 600,'#8db174', 1100,'#c0bd80',
+  /* extra stops through the first few hundred meters — most of the inhabited
+     world lives there, and a single teal band made the whole plate go flat */
+  var RELIEF_STOPS = [0,'#3f7d78', 50,'#4c8a71', 150,'#5d976e', 350,'#77a670',
+                      600,'#8db174', 850,'#a7b77a', 1100,'#c0bd80',
                       1800,'#d3b574', 2600,'#c79a60', 3600,'#b97f50'];
 
   /* lofted cloud tops — built later from live GOES/Himawari infrared pixels */
@@ -945,18 +994,10 @@
         paint:{ 'text-color':P.townText, 'text-halo-color':P.bg, 'text-halo-width':1.8 } }
     ];
 
-    /* the place under the glass */
-    if (P.glow) layers.push(
-      { id:'spot-glow', type:'circle', source:'spot',
-        paint:{ 'circle-radius':['interpolate',['linear'],['zoom'], 4,8, 12,13],
-                'circle-color':P.lmDot, 'circle-blur':1, 'circle-opacity':0.45,
-                'circle-pitch-alignment':'map' } });
+    /* the place under the glass — the dot itself is a DOM marker (see spotPin
+       below: 3-D terrain depth-culls circle layers at low zoom, and a marker
+       tracks the terrain instead); only the label lives in the style */
     layers.push(
-      { id:'spot-dot', type:'circle', source:'spot',
-        paint:{ 'circle-radius':['interpolate',['linear'],['zoom'], 4,4, 12,6],
-                'circle-color':P.lmDot,
-                'circle-stroke-color':P.lmStroke, 'circle-stroke-width':1.25,
-                'circle-pitch-alignment':'map' } },
       { id:'spot-label', type:'symbol', source:'spot',
         layout:{ 'text-field':['get','name'], 'text-font':['Noto Sans Bold'],
           'text-size':['interpolate',['linear'],['zoom'], 4,10.5, 12,12.5],
@@ -966,7 +1007,8 @@
         paint:{ 'text-color':P.lmText, 'text-halo-color':P.lmHalo, 'text-halo-width':1.9 } },
       { id:'alert-fill', type:'fill', source:'alerts',
         layout:{ visibility:'none' },
-        paint:{ 'fill-color':['get','col'], 'fill-opacity':0.13 } },
+        /* strong enough to still read through an active radar echo above it */
+        paint:{ 'fill-color':['get','col'], 'fill-opacity':0.22 } },
       { id:'alert-line', type:'line', source:'alerts',
         layout:{ visibility:'none', 'line-join':'round' },
         paint:{ 'line-color':['get','col'], 'line-width':2.2,
@@ -982,6 +1024,9 @@
         paint:{ 'fill-extrusion-color':['interpolate',['linear'],['get','s'],
                   0, P.cloudLow, 5, P.cloudHigh],
                 'fill-extrusion-height':['get','h'], 'fill-extrusion-base':['get','b'],
+                /* no wall shading — from above it read as a grey checkerboard
+                   of column seams rather than a cloud deck */
+                'fill-extrusion-vertical-gradient':false,
                 'fill-extrusion-opacity':0.78 } });
 
     /* hurricane tracking — cone, tracks, positions (topmost so the storm reads clearly) */
@@ -1219,6 +1264,16 @@
       ctx.drawImage(mc, 0, 0);
       /* fold in the wind overlay, which lives on its own canvas above the map */
       if (windOn()) ctx.drawImage(windCv, 0, 0, out.width, out.height);
+      /* and the spot marker, which is a DOM element the canvas never sees */
+      var pt = map.project([LOC.lon, LOC.lat]);
+      var k = mc.width / mc.clientWidth;
+      if (pt.x > 0 && pt.y > 0 && pt.x * k < out.width && pt.y * k < out.height) {
+        var P = PALETTES[theme] || PALETTES.antique;
+        ctx.beginPath();
+        ctx.arc(pt.x * k, pt.y * k, 5.5 * k, 0, Math.PI * 2);
+        ctx.fillStyle = P.lmDot; ctx.fill();
+        ctx.lineWidth = 1.5 * k; ctx.strokeStyle = P.lmStroke; ctx.stroke();
+      }
     } catch (err) { toast('The map could not be captured. Try again in a moment.'); return; }
     var url;
     try { url = out.toDataURL('image/jpeg', 0.92); }
@@ -1406,8 +1461,8 @@
     if (styleReady) map.triggerRepaint();
     var f = RADAR.frames[RADAR.idx];
     rbScrub.value = RADAR.idx;
-    rbTime.textContent = new Date(f.time * 1000)
-      .toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+    rbTime.textContent = placeClock(new Date(f.time * 1000),
+      { hour:'numeric', minute:'2-digit' });
     rbTag.textContent = RADAR.idx === RADAR.pastCount - 1 ? 'NOW' :
                         RADAR.idx >= RADAR.pastCount ? 'FORECAST' : 'PAST';
     updateDialMarker();
@@ -1416,7 +1471,17 @@
     if (!RADAR.frames.length || !radarOn()) return;
     /* a style rebuild (e.g. a fast theme switch) can drop the runtime radar layers — re-add them */
     if (styleReady && map.isStyleLoaded() && !map.getLayer('radar-' + RADAR.idx)) buildRadarLayers();
-    if (RADAR.playing) setFrame(RADAR.idx + 1);
+    if (RADAR.playing) {
+      /* hold the frame until the next one's tiles are aboard — otherwise the
+         first cycle flashes blank frames while they stream in (bounded hold,
+         so one stubborn tile can't freeze the loop) */
+      var nid = 'radar-' + ((RADAR.idx + 1) % RADAR.frames.length);
+      var ready = true;
+      try { ready = !styleReady || !map.getSource(nid) || map.isSourceLoaded(nid); } catch (err) {}
+      if (!ready && (RADAR.hold || 0) < 8) { RADAR.hold = (RADAR.hold || 0) + 1; return; }
+      RADAR.hold = 0;
+      setFrame(RADAR.idx + 1);
+    }
   }
   function setPlaying(p){
     RADAR.playing = p;
@@ -1508,7 +1573,7 @@
       if (major && hq < 24) {
         out.push('<text x="' + (hq === 0 ? 1 : x.toFixed(1)) + '" y="' + (H - 0.5) +
                  '" text-anchor="' + (hq === 0 ? 'start' : 'middle') +
-                 '" font-size="7.5" letter-spacing="1" fill="#93A1B4"' +
+                 '" font-size="9" letter-spacing="0.6" fill="#93A1B4"' +
                  ' font-family="Archivo Narrow,sans-serif">' + (hq < 10 ? '0' : '') +
                  hq + '</text>');
       }
@@ -1534,6 +1599,16 @@
     out.push('<path d="M' + (nx - 3.2).toFixed(1) + ' 4.5 L' + (nx + 3.2).toFixed(1) +
              ' 4.5 L' + nx.toFixed(1) + ' 9.5 Z" fill="#E3B341"/>');
     ddStrip.innerHTML = out.join('');
+    /* narrate the instrument for assistive tech */
+    var lbl = 'Day dial';
+    if (sr != null && ss != null && ss > sr && WX && WX.daily) {
+      lbl += ': sunrise ' + clock12(WX.daily.sunrise[0]) +
+             ', sunset ' + clock12(WX.daily.sunset[0]);
+    } else {
+      lbl += ': no sunrise or sunset today';
+    }
+    lbl += '; moon ' + mp.illum + '% lit';
+    ddStrip.setAttribute('aria-label', lbl);
     DIAL.mark = document.getElementById('dd-mark');
     updateDialMarker();
   }
@@ -1550,7 +1625,7 @@
     clearTimeout(ddResize);
     ddResize = setTimeout(drawDayDial, 200);
   });
-  setInterval(drawDayDial, 60 * 1000);   /* the needle keeps time */
+  setInterval(function(){ drawDayDial(); renderMasthead(); }, 60 * 1000);   /* the needle keeps time */
 
   /* ---------- Doppler velocity from the nearest Weather Service radar ----------
      Base velocity is radial — measured toward or away from one radar — so there is
@@ -1702,8 +1777,11 @@
           var d = cloudDecode(data[i4], data[i4 + 1], data[i4 + 2], data[i4 + 3]);
           if (!d) continue;
           var gx = t.x * 256 + px, gy = t.y * 256 + py;
-          var lon0 = gx / world * 360 - 180, lon1 = (gx + step) / world * 360 - 180;
-          var lat0 = mercLat(gy, world), lat1 = mercLat(gy + step, world);
+          /* cells overlap their neighbors a hair, so no antialiasing cracks
+             open up between adjacent columns */
+          var ov = step * 0.06;
+          var lon0 = gx / world * 360 - 180, lon1 = (gx + step + ov) / world * 360 - 180;
+          var lat0 = mercLat(gy, world), lat1 = mercLat(gy + step + ov, world);
           if (lon1 < w || lon0 > e || lat0 < sLat || lat1 > nLat) continue;
           feats.push({ type:'Feature', properties:{ s:d[0], h:d[1], b:d[2] },
             geometry:{ type:'Polygon', coordinates:[[
@@ -2135,6 +2213,17 @@
     } catch (err) {}
   }
   map.on('load', applyRuntime);
+  map.on('load', function(){
+    /* the compact attribution starts expanded and its open pill lay across the
+       Day-Dial — start it folded to its mark; a tap still opens it */
+    var att = document.querySelector('.maplibregl-ctrl-attrib');
+    if (att) att.classList.remove('maplibregl-compact-show');
+    /* on the phone the restored place must land in the strip of map above the
+       bottom sheet, same as a freshly chosen one */
+    if (panelIsSheet() && !hadInitialHash) {
+      map.easeTo({ center:[LOC.lon, LOC.lat], offset:flyOffset(), duration:0 });
+    }
+  });
 
   document.getElementById('tg-terrain').addEventListener('change', function(){
     if (!styleReady) return;
@@ -2182,9 +2271,12 @@
     } catch (err) {}
     var next = makeStyle(nm);
     buildPaintRegistry(next);
+    /* park the 3-D terrain during the swap: MapLibre runs its terrain depth
+       pass mid-setStyle against the half-replaced shader registry and throws —
+       applyRuntime rehangs the terrain once the new style has settled */
+    try { map.setTerrain(null); } catch (err) {}
     map.setStyle(next, { diff:true });
     map.once('styledata', applyRuntime);
-    applyRuntime();
     drawHourly();   /* the chart's gridline colors are computed from the live tokens */
   }
   THEME_NAMES.forEach(function(n){
@@ -2327,7 +2419,8 @@
       }
       sec.classList.remove('pending');
       note.innerHTML = 'Live from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>' +
-        ' &middot; as of ' + new Date().toLocaleTimeString(undefined, { hour:'numeric', minute:'2-digit' });
+        ' &middot; as of ' + placeClock(new Date(), { hour:'numeric', minute:'2-digit' }) +
+        ' local';
     } catch (err) {}
 
     drawHourly();
@@ -2370,7 +2463,8 @@
       document.getElementById('sun-sec').classList.remove('pending');
     } catch (err) {}
 
-    drawDayDial();   /* the dial's sun arc rides the fresh ephemeris */
+    drawDayDial();     /* the dial's sun arc rides the fresh ephemeris */
+    renderMasthead();  /* the masthead keeps the place's own calendar day */
   }
 
   /* the 48-hour chart — temperature line over rain-chance bars, drawn fresh per theme */
@@ -2424,8 +2518,11 @@
       var tx = Math.min(Math.max(x(ix), 14), W - 14);
       out.push('<circle cx="' + x(ix).toFixed(1) + '" cy="' + yT(h.temperature_2m[ix]).toFixed(1) +
         '" r="2.6" fill="' + cTemp + '"/>');
-      out.push('<text x="' + tx.toFixed(1) + '" y="' +
-        (yT(h.temperature_2m[ix]) + (ix === loI ? 13 : -6)).toFixed(1) +
+      /* the low's label sits under its dot — unless the dot rides the floor,
+         where the label would mash into the time ticks; then it goes above */
+      var ly = yT(h.temperature_2m[ix]) + (ix === loI ? 13 : -6);
+      if (ix === loI && ly > top + plotH + 3) ly = yT(h.temperature_2m[ix]) - 8;
+      out.push('<text x="' + tx.toFixed(1) + '" y="' + ly.toFixed(1) +
         '" text-anchor="middle" font-size="10" font-weight="600" fill="' + cInk + '">' +
         Math.round(h.temperature_2m[ix]) + '°</text>');
     });
@@ -2466,12 +2563,21 @@
           div.style.borderLeftColor = col;
           var until = p.ends || p.expires;
           div.innerHTML = '<b style="color:' + col + '">' + (p.event || 'Weather alert') + '</b>' +
-            (until ? 'until ' + new Date(until).toLocaleString(undefined,
+            (until ? 'until ' + placeClock(new Date(until),
               { weekday:'short', hour:'numeric', minute:'2-digit' }) : '');
           box.appendChild(div);
         });
       })
       .catch(function(){});
+  }
+
+  /* format an ISO stamp in the timezone written INTO the stamp (NWS alerts
+     carry the alert area's own offset) */
+  function alertWallClock(iso){
+    var m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(String(iso));
+    if (!m) return '';
+    return new Date(Date.UTC(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]))
+      .toLocaleString(undefined, { weekday:'short', hour:'numeric', minute:'2-digit', timeZone:'UTC' });
   }
 
   /* the failure state, considered: say so plainly and keep trying */
@@ -2520,6 +2626,28 @@
   function updateHeading(){
     locName.textContent = LOC.name.toUpperCase();
     locName.className = LOC.name.length > 11 ? 'long' : '';
+    locName.style.fontSize = '';
+    /* a single word longer than the column would break mid-word — shrink the
+       type until the longest word fits on one line instead */
+    var longest = LOC.name.split(/\s+/).reduce(function(a, b){
+      return b.length > a.length ? b : a; }, '');
+    if (longest.length > 13) {
+      var cs = getComputedStyle(locName);
+      var probe = document.createElement('span');
+      probe.textContent = longest.toUpperCase();
+      probe.style.cssText = 'position:absolute; visibility:hidden; white-space:nowrap;' +
+        'font-family:' + cs.fontFamily + '; font-weight:' + cs.fontWeight + ';' +
+        'letter-spacing:' + cs.letterSpacing;
+      document.body.appendChild(probe);
+      var fs = parseFloat(cs.fontSize);
+      while (fs > 14) {
+        probe.style.fontSize = fs + 'px';
+        if (probe.offsetWidth <= locName.clientWidth) break;
+        fs -= 1;
+      }
+      probe.remove();
+      locName.style.fontSize = fs + 'px';
+    }
     locSub.textContent = LOC.sub || (LOC.lat.toFixed(3) + '°, ' + LOC.lon.toFixed(3) + '°');
   }
   /* below 760px the panel is a bottom sheet (see the matching CSS media query) —
@@ -2532,10 +2660,21 @@
     var ph = panel ? panel.offsetHeight : window.innerHeight * 0.46;
     return [0, -ph / 2];
   }
+  /* the dot on the map is a DOM marker: it rides the terrain's height and stays
+     visible where a circle layer would be depth-culled under the raised ground */
+  var spotEl = document.createElement('div');
+  spotEl.id = 'spot-pin';
+  spotEl.setAttribute('aria-hidden', 'true');
+  /* opacityWhenCovered:1 — at low zoom the DEM mesh "covers" the ground point
+     and MapLibre would fade the pin to a ghost; the chosen place stays solid */
+  var spotPin = new maplibregl.Marker({ element:spotEl, opacityWhenCovered:'1' })
+    .setLngLat([LOC.lon, LOC.lat]).addTo(map);
+
   function setLocation(next, fly){
     LOC = next;
     try { localStorage.setItem('almanac-loc', JSON.stringify(LOC)); } catch (err) {}
     updateHeading();
+    spotPin.setLngLat([LOC.lon, LOC.lat]);
     if (styleReady && map.getSource('spot')) map.getSource('spot').setData(locGeo());
     if (fly) {
       HOME = homeView();
@@ -2646,8 +2785,9 @@
       var hits = map.queryRenderedFeatures(e.point, { layers:['alert-fill'] });
       if (hits.length) {
         var ap = hits[0].properties;
-        var until = ap.ends ? new Date(ap.ends).toLocaleString(undefined,
-          { weekday:'short', hour:'numeric', minute:'2-digit' }) : '';
+        /* the alert's ISO stamp carries its own local offset — show that wall
+           clock, so our line agrees with the times NWS writes in the headline */
+        var until = ap.ends ? alertWallClock(ap.ends) : '';
         new maplibregl.Popup({ offset:8, maxWidth:'280px' })
           .setLngLat(e.lngLat)
           .setHTML('<h3 style="color:' + ap.col + '">' + ap.event + '</h3>' +
