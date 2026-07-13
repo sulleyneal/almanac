@@ -1,8 +1,41 @@
 # Visual overhaul — progress
 
-**Round:** 2 — round-1 findings fixed, critic round 2 in flight
-**State:** ▶ Critic round 1 returned 6 major + 8 minor findings; all 14 fixed
+**Round:** 3 — round-2 findings fixed, critic round 3 in flight
+**State:** ▶ Round 2 returned 4 majors + 10 minors (down from 6 + 8). All fixed
 and smoke-verified. Done = two consecutive critic rounds with zero majors.
+
+## Round 2 critic findings → fixes (all landed)
+Majors:
+1. **13 uncaught TypeErrors in 15 plate switches with weather layers on** —
+   root-caused to MapLibre's style diff re-binding the fill-extrusion layers'
+   data-driven paint against buckets the workers still held. Plate swaps now do
+   a full style rebuild (`diff:false`) with the weather sources baked empty and
+   refilled from the in-memory caches on `styledata`. 15 switches, all six
+   layers on: **zero errors** (was 13).
+2. **Sliders had no visible keyboard focus** — the track reset carried
+   `outline:none`; all five ranges now take the gold ring.
+3. **Antique cartouche covered both scale bars at 768** — the ornament now
+   yields below 1120 px (mobile already hid it).
+4. **Attribution mark sat on the bottom sheet's live figures at 360** — the
+   bottom-right controls ride above the sheet (and above the dial when shown),
+   mirroring the scale bars.
+
+Minors: the radar clock re-prints the moment a new place's forecast (and
+timezone) lands, and a relocation drops the old place's forecast immediately —
+the instruments run on a longitude-estimated clock (±1 h) rather than the old
+place's or the browser's; chart hi/lo figures get a ground-colored halo over
+full-height rain bars; sub-hundredth precipitation prints "trace", never
+"0.00 in"; the basemap-outage notice moved from the footer to under the search
+box; polar day/night prints an em-dash instead of "sunrise 12:00 am"; the
+abandoned search text clears on dismissal; PAST/NOW/FORECAST tag up to 9.5 px;
+the moon glyph steps aside when the needle rides near midnight; Relief's spot
+dot is brick (the teal one vanished into the green field); cloud-top columns
+skip the faint warm-deck wash and drop to 0.68 opacity.
+
+Design decision (recorded in DESIGN.md §0 item 12): **the Day-Dial is no longer
+a hostage of the radar toggle.** Radar off folds away only the controls row,
+the loop window and the frame tick — the day strip, sun arc, needle and moon
+stay out. The ephemeris is the app's spine, not a radar accessory.
 
 ## Round 1 critic findings → fixes (all landed)
 Majors:
@@ -70,4 +103,7 @@ Live smoke shot confirmed: tiles, forecast, Day-Dial sun arc, radar loop all rea
 - **Round 1** (full matrix, live data): 6 majors / 8 minors — listed above, all
   fixed. Contract: 31 OK, 4 partial, rest environmental (no active hurricanes
   on Earth to render; sky/fog and no-WebGL unverifiable headless).
-- **Round 2**: in flight.
+- **Round 2** (full matrix, live data): 4 majors / 10 minors — listed above,
+  all fixed. Contract: 34 OK, 3 partial, rest environmental. The two rounds
+  agree the concept holds; the failures were craft and edge cases.
+- **Round 3**: in flight. Needs zero majors here AND in round 4 to finish.

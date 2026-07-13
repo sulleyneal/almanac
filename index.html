@@ -41,7 +41,7 @@
     --spot-glow:rgba(56,189,248,.5); }
   body.theme-hydro{ --bg:#06080d; --map-bg:#070a10; --spot-dot:#38bdf8; --spot-ring:#070a10;
     --spot-glow:rgba(56,189,248,.5); }
-  body.theme-relief{ --bg:#e6e1d2; --map-bg:#f0ece0; --spot-dot:#2e6f63; --spot-ring:#3f3322; }
+  body.theme-relief{ --bg:#e6e1d2; --map-bg:#f0ece0; --spot-dot:#a3392c; --spot-ring:#3f3322; }
   body.theme-topo{ --bg:#e9e5d8; --map-bg:#f4f1e8; --spot-dot:#6b5635; --spot-ring:#3f3322; }
   #spot-pin{ width:11px; height:11px; border-radius:50%; box-sizing:border-box;
     background:var(--spot-dot); border:1.5px solid var(--spot-ring); }
@@ -245,7 +245,11 @@
     font-variant-numeric:tabular-nums; }
   .sliders input[type=range], #rb-scrub{
     -webkit-appearance:none; appearance:none; width:100%; height:3px; border-radius:999px;
-    background:var(--hairline); outline:none; margin:10px 0 6px; cursor:pointer;
+    background:var(--hairline); margin:10px 0 6px; cursor:pointer;
+  }
+  /* keyboard focus must reach the sliders too — the gold ring rides the track */
+  .sliders input[type=range]:focus-visible, #rb-scrub:focus-visible{
+    outline:2px solid var(--gold); outline-offset:4px;
   }
   .sliders input[type=range]::-webkit-slider-thumb, #rb-scrub::-webkit-slider-thumb{
     -webkit-appearance:none; width:14px; height:14px; border-radius:50%;
@@ -282,7 +286,9 @@
     outline:1px solid var(--hairline); outline-offset:3px; border-radius:2px;
     padding:9px 18px; text-align:center; box-shadow:0 2px 10px rgba(8,12,20,.35);
   }
-  body.theme-antique #cartouche{ display:block; }
+  /* the cartouche is an ornament: below 1120px the corner belongs to the scale
+     bars and the dial, and the plaque would lie across them */
+  @media (min-width:1121px){ body.theme-antique #cartouche{ display:block; } }
   #cartouche .t1{ font-family:var(--font-display); font-weight:600; font-size:12px;
     letter-spacing:.22em; }
   #cartouche .t2{ font-family:var(--font-data); font-size:9px; letter-spacing:.22em;
@@ -304,6 +310,8 @@
     border-radius:var(--radius); box-shadow:var(--shadow);
   }
   #radar-bar.show{ display:flex; }
+  /* radar off removes the radar's own controls — the day itself stays out */
+  #radar-bar.noradar #dd-controls{ display:none; }
   #dd-strip{ display:block; width:100%; height:46px; }
   #dd-controls{ display:flex; align-items:center; gap:10px; }
   #rb-play{
@@ -315,7 +323,7 @@
   #rb-scrub{ flex:1; margin:0; }
   #rb-time{ flex:none; width:66px; text-align:right; font-family:var(--font-data);
     font-size:12px; font-weight:600; font-variant-numeric:tabular-nums; color:var(--paper); }
-  #rb-tag{ flex:none; font-family:var(--font-data); font-size:8.5px; font-weight:600;
+  #rb-tag{ flex:none; font-family:var(--font-data); font-size:9.5px; font-weight:600;
     letter-spacing:.16em; color:var(--gold); border:1px solid var(--hairline);
     border-radius:3px; padding:3px 7px 2px; min-width:50px; text-align:center; }
 
@@ -368,8 +376,8 @@
     opacity:0; pointer-events:none; transition:opacity .25s; z-index:60; }
   #toast.show{ opacity:1; }
   .maplibregl-ctrl-scale{
-    background:rgba(33,43,58,.85); border-color:var(--moon); color:var(--paper);
-    font-family:var(--font-data); font-size:10.5px;
+    background:rgba(33,43,58,.55); border:1px solid var(--moon); border-top:none;
+    color:var(--paper); font-family:var(--font-data); font-size:10.5px;
   }
   .maplibregl-ctrl-attrib{ background:rgba(33,43,58,.85) !important;
     font-family:var(--font-body); color:var(--moon); }
@@ -380,6 +388,7 @@
   .maplibregl-ctrl-bottom-right{ z-index:6; }
   @media (min-width:761px) and (max-width:1020px){
     body:has(#radar-bar.show) .maplibregl-ctrl-bottom-left{ bottom:126px; }
+    body:has(#radar-bar.show.noradar) .maplibregl-ctrl-bottom-left{ bottom:92px; }
   }
 
   /* mobile: bottom sheet */
@@ -405,6 +414,11 @@
     #dd-strip{ height:40px; }
     .maplibregl-ctrl-bottom-left{ left:0; bottom:calc(46% + 6px); }
     body:has(#radar-bar.show) .maplibregl-ctrl-bottom-left{ bottom:calc(46% + 112px); }
+    body:has(#radar-bar.show.noradar) .maplibregl-ctrl-bottom-left{ bottom:calc(46% + 80px); }
+    /* the attribution mark must not lie on the bottom sheet's live figures */
+    .maplibregl-ctrl-bottom-right{ bottom:calc(46% + 6px); }
+    body:has(#radar-bar.show) .maplibregl-ctrl-bottom-right{ bottom:calc(46% + 112px); }
+    body:has(#radar-bar.show.noradar) .maplibregl-ctrl-bottom-right{ bottom:calc(46% + 80px); }
   }
 </style>
 </head>
@@ -438,6 +452,9 @@
              autocomplete="off" spellcheck="false" aria-label="Search for a place">
       <ul id="loc-results"></ul>
     </div>
+    <!-- basemap trouble is announced up here, where it can be seen — not in the footer -->
+    <div id="warn">The street survey could not be reached &mdash; the terrain is drawn, but roads and
+    water may be missing. Check your connection and reload.</div>
 
     <h1 id="loc-name">RUSTON</h1>
     <p class="tagline" id="loc-sub">Louisiana, United States</p>
@@ -521,8 +538,6 @@
 
     <button class="btn" id="btn-locate">Use my location</button>
     <button class="btn" id="btn-reset">Return to the full prospect</button>
-    <div id="warn">The street survey could not be reached &mdash; the terrain is drawn, but roads and
-    water may be missing. Check your connection and reload.</div>
 
     <div class="credits">
       Forecast from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> &middot;
@@ -570,8 +585,15 @@
      time (from the forecast's timezone), never the browser's — the dial, the
      radar clock, the "as of" line and the masthead must all agree. */
   function placeOffsetSec(){
-    return (typeof WX !== 'undefined' && WX && typeof WX.utc_offset_seconds === 'number')
-      ? WX.utc_offset_seconds : -new Date().getTimezoneOffset() * 60;
+    if (typeof WX !== 'undefined' && WX && typeof WX.utc_offset_seconds === 'number') {
+      return WX.utc_offset_seconds;
+    }
+    /* no forecast yet (or the wire is down): estimate the zone from longitude —
+       an hour of error beats printing the viewer's clock for a far place */
+    if (typeof LOC !== 'undefined' && LOC && typeof LOC.lon === 'number') {
+      return Math.round(LOC.lon / 15) * 3600;
+    }
+    return -new Date().getTimezoneOffset() * 60;
   }
   function placeClock(d, opts){
     /* shift to the place's wall clock, then format the shifted instant as UTC */
@@ -764,7 +786,7 @@
     roadText:'#4c4734', refText:'#43503f', refHalo:'#e9e2cc',
     waterText:'#2d6e91', poiText:'#5d5944', poiFont:'Noto Sans Regular',
     hoodText:'#77704f', hoodFont:'Noto Sans Regular', villageText:'#4c4734', townText:'#33382f',
-    lmDot:'#2e6f63',
+    lmDot:'#a3392c',   /* brick — the old teal dot vanished into the green field */
     rainLow:'#bcd6e2', rainHigh:'#2d7298',
     reliefRamp: RELIEF_STOPS
   });
@@ -1027,7 +1049,7 @@
                 /* no wall shading — from above it read as a grey checkerboard
                    of column seams rather than a cloud deck */
                 'fill-extrusion-vertical-gradient':false,
-                'fill-extrusion-opacity':0.78 } });
+                'fill-extrusion-opacity':0.68 } });
 
     /* hurricane tracking — cone, tracks, positions (topmost so the storm reads clearly) */
     var stormCol = ['interpolate',['linear'],['get','wind'],
@@ -1104,14 +1126,18 @@
         contours: { type:'vector', tiles:[contourTiles], maxzoom:15 },
         'contours-dense': { type:'vector', tiles:[contourTilesDense], maxzoom:15 },
         spot: { type:'geojson', data:locGeo() },
-        clouds: { type:'geojson', data:CLOUD.fc },
-        rain24: { type:'geojson', data:RAIN.fc },
-        alerts: { type:'geojson', data:ALERTS.fc },
-        'hurr-cone': { type:'geojson', data:HURR.cone },
-        'hurr-trackf': { type:'geojson', data:HURR.trackF },
-        'hurr-tracko': { type:'geojson', data:HURR.trackO },
-        'hurr-fpos': { type:'geojson', data:HURR.fpos },
-        'hurr-opos': { type:'geojson', data:HURR.opos },
+        /* the weather sources are baked EMPTY: applyRuntime refills them from
+           the in-memory caches once a style settles. Baking live data made the
+           diff re-bind data-driven paint against standing buckets mid-draw —
+           an uncaught TypeError deep in the render loop on every plate swap. */
+        clouds: { type:'geojson', data:emptyFC() },
+        rain24: { type:'geojson', data:emptyFC() },
+        alerts: { type:'geojson', data:emptyFC() },
+        'hurr-cone': { type:'geojson', data:emptyFC() },
+        'hurr-trackf': { type:'geojson', data:emptyFC() },
+        'hurr-tracko': { type:'geojson', data:emptyFC() },
+        'hurr-fpos': { type:'geojson', data:emptyFC() },
+        'hurr-opos': { type:'geojson', data:emptyFC() },
         draw: { type:'geojson', data:DRAW.fc }
       },
       layers: layers
@@ -1428,7 +1454,7 @@
     });
   }
   function buildRadarLayers(){
-    if (!styleReady || !RADAR.frames.length) return;
+    if (!styleReady || SWAPPING || !RADAR.frames.length) return;
     try {
       RADAR.frames.forEach(function(f, i){
         var id = 'radar-' + i;
@@ -1504,9 +1530,8 @@
         RADAR.pastCount = past.length;
         RADAR.idx = Math.max(0, RADAR.pastCount - 1);
         rbScrub.max = Math.max(0, RADAR.frames.length - 1);
-        if (RADAR.frames.length) radarBar.className = radarOn() ? 'show' : '';
+        updateBarMode();
         buildRadarLayers();
-        drawDayDial();
       })
       .catch(function(){});
   }
@@ -1520,6 +1545,14 @@
      day, via its UTC offset from the forecast. */
   var ddStrip = document.getElementById('dd-strip');
   var DIAL = { mark:null, W:0 };
+  /* The Day-Dial is the place's ephemeris — it stands whether or not the radar
+     is listening. Radar off (or no frames) folds away only the controls row
+     and the loop's window on the strip. */
+  function updateBarMode(){
+    var haveRadar = radarOn() && RADAR.frames.length;
+    radarBar.className = 'show' + (haveRadar ? '' : ' noradar');
+    drawDayDial();   /* the strip re-measures itself when the bar reshapes */
+  }
   function ddOffset(){
     return (WX && typeof WX.utc_offset_seconds === 'number')
       ? WX.utc_offset_seconds : -new Date().getTimezoneOffset() * 60;
@@ -1578,7 +1611,7 @@
                  hq + '</text>');
       }
     }
-    if (RADAR.frames.length) {
+    if (RADAR.frames.length && radarOn()) {
       var f0 = ddUnixFrac(RADAR.frames[0].time, off);
       var f1 = ddUnixFrac(RADAR.frames[RADAR.frames.length - 1].time, off);
       var segs = f1 >= f0 ? [[f0, f1]] : [[f0, 1], [0, f1]];
@@ -1589,7 +1622,10 @@
       });
     }
     var mp = moonPhase();
-    out.push('<g transform="translate(' + (W - 16) + ',3.5) scale(0.58)"' +
+    /* the moon keeps to the corner the needle isn't in — near midnight the
+       needle's pin would spear it */
+    var moonX = nowF > 0.9 ? 5 : W - 16;
+    out.push('<g transform="translate(' + moonX + ',3.5) scale(0.58)"' +
              ' color="#93A1B4">' + moonInner(mp.frac) + '</g>');
     out.push('<line id="dd-mark" x1="-9" y1="' + (bandY - 3) + '" x2="-9" y2="' +
              (bandY + bandH + 3) + '" stroke="#EFECE2" stroke-width="1.3" opacity="0"/>');
@@ -1614,7 +1650,7 @@
   }
   function updateDialMarker(){
     if (!DIAL.mark) return;
-    if (!RADAR.frames.length) { DIAL.mark.setAttribute('opacity', '0'); return; }
+    if (!RADAR.frames.length || !radarOn()) { DIAL.mark.setAttribute('opacity', '0'); return; }
     var f = ddUnixFrac(RADAR.frames[RADAR.idx].time, ddOffset());
     var x = (f * DIAL.W).toFixed(1);
     DIAL.mark.setAttribute('x1', x); DIAL.mark.setAttribute('x2', x);
@@ -1626,6 +1662,7 @@
     ddResize = setTimeout(drawDayDial, 200);
   });
   setInterval(function(){ drawDayDial(); renderMasthead(); }, 60 * 1000);   /* the needle keeps time */
+  updateBarMode();   /* the dial stands from the first paint, radar or not */
 
   /* ---------- Doppler velocity from the nearest Weather Service radar ----------
      Base velocity is radial — measured toward or away from one radar — so there is
@@ -1654,7 +1691,7 @@
            '-N0U-0/{z}/{x}/{y}.png?t=' + Math.floor(Date.now() / 300000);
   }
   function ensureVelocity(force){
-    if (!styleReady) return;
+    if (!styleReady || SWAPPING) return;
     try {
       var want = velocityOn() ? nearestNexrad() : null;
       if (!want) {
@@ -1703,8 +1740,10 @@
   function cloudDecode(r, g, b, a){
     if (a < 200) return null;
     if (Math.max(Math.abs(r - g), Math.abs(g - b), Math.abs(r - b)) < 16) {
-      if (r < 135) return null;                       /* warm ground, no significant cloud */
-      var t = Math.min(1, (r - 135) / 75);            /* gray deck: light = cooler = higher */
+      /* warm ground or thin low deck — the faint grey wash tiled whole plates
+         with noise, so only decks with some substance get a column */
+      if (r < 150) return null;
+      var t = Math.min(1, (r - 150) / 60);            /* gray deck: light = cooler = higher */
       var h = 1600 + 5600 * t;
       return [t * 1.6, h, 500 + h * 0.62];
     }
@@ -1722,7 +1761,7 @@
     return 180 / Math.PI * Math.atan(Math.sinh(n));
   }
   function rebuildClouds(){
-    if (!styleReady || !cloudsOn() || CLOUD.building) return;
+    if (!styleReady || SWAPPING || !cloudsOn() || CLOUD.building) return;
     var zm = map.getZoom();
     var z = zm >= 7.5 ? 6 : zm >= 5 ? 5 : zm >= 3.5 ? 4 : 3;
     var bnds = map.getBounds();
@@ -1789,7 +1828,7 @@
         }
       });
       CLOUD.fc = { type:'FeatureCollection', features:feats };
-      if (map.getSource('clouds')) map.getSource('clouds').setData(CLOUD.fc);
+      if (!SWAPPING && map.getSource('clouds')) map.getSource('clouds').setData(CLOUD.fc);
     });
   }
   document.getElementById('tg-clouds').addEventListener('change', function(){
@@ -1817,7 +1856,7 @@
     return mm;
   }
   function rebuildRain(){
-    if (!styleReady || !rainOn() || RAIN.building) return;
+    if (!styleReady || SWAPPING || !rainOn() || RAIN.building) return;
     var b = map.getBounds(), c = map.getCenter();
     var w = Math.max(b.getWest(), c.lng - 10), e = Math.min(b.getEast(), c.lng + 10);
     var s = Math.max(b.getSouth(), c.lat - 7, -80), n = Math.min(b.getNorth(), c.lat + 7, 80);
@@ -1860,7 +1899,7 @@
             [w0 + inX, s0 + inY]]] } });
       }
       RAIN.fc = { type:'FeatureCollection', features:feats };
-      if (map.getSource('rain24')) map.getSource('rain24').setData(RAIN.fc);
+      if (!SWAPPING && map.getSource('rain24')) map.getSource('rain24').setData(RAIN.fc);
     }
     if (RAIN.cache[key]) { render(RAIN.cache[key]); return; }
     var pts = [];
@@ -2059,7 +2098,7 @@
               ends: p.ends || p.expires || '' } };
           });
         ALERTS.fc = { type:'FeatureCollection', features:feats };
-        if (styleReady && map.getSource('alerts')) map.getSource('alerts').setData(ALERTS.fc);
+        if (styleReady && !SWAPPING && map.getSource('alerts')) map.getSource('alerts').setData(ALERTS.fc);
       })
       .catch(function(){ ALERTS.building = false; });
   }
@@ -2150,7 +2189,7 @@
         ['hurr-cone','hurr-trackf','hurr-tracko','hurr-fpos','hurr-opos'].forEach(function(src){
           var data = src === 'hurr-cone' ? HURR.cone : src === 'hurr-trackf' ? HURR.trackF
                    : src === 'hurr-tracko' ? HURR.trackO : src === 'hurr-fpos' ? HURR.fpos : HURR.opos;
-          if (styleReady && map.getSource(src)) map.getSource(src).setData(data);
+          if (styleReady && !SWAPPING && map.getSource(src)) map.getSource(src).setData(data);
         });
         applyHurrVisibility();
         renderStormList();
@@ -2202,6 +2241,15 @@
         if (map.getLayer(id)) map.setLayoutProperty(id, 'visibility', av);
       });
       applyHurrVisibility();
+      /* refill the empty-baked weather sources from the in-memory caches —
+         the style itself never carries their geometry (see makeStyle) */
+      [['clouds', CLOUD.fc], ['rain24', RAIN.fc], ['alerts', ALERTS.fc],
+       ['hurr-cone', HURR.cone], ['hurr-trackf', HURR.trackF],
+       ['hurr-tracko', HURR.trackO], ['hurr-fpos', HURR.fpos],
+       ['hurr-opos', HURR.opos]].forEach(function(p){
+        var s = map.getSource(p[0]);
+        if (s) s.setData(p[1]);
+      });
       if (cloudsOn() && !CLOUD.fc.features.length) rebuildClouds();
       if (rainOn() && !RAIN.fc.features.length) rebuildRain();
       if (alertsOn()) rebuildAlerts();
@@ -2238,8 +2286,7 @@
     });
   });
   document.getElementById('tg-radar').addEventListener('change', function(){
-    radarBar.className = (this.checked && RADAR.frames.length) ? 'show' : '';
-    drawDayDial();   /* the strip measures itself once the bar is visible */
+    updateBarMode();
     applyRadarVisibility();
     setFrame(RADAR.idx);
   });
@@ -2255,6 +2302,7 @@
   }
 
   /* ---------- theme switching, in place ---------- */
+  var SWAPPING = false;   /* true while setStyle is digesting a plate change */
   var ED = {};
   THEME_NAMES.forEach(function(n){ ED[n] = document.getElementById('ed-' + n); });
   function setTheme(nm){
@@ -2271,12 +2319,39 @@
     } catch (err) {}
     var next = makeStyle(nm);
     buildPaintRegistry(next);
-    /* park the 3-D terrain during the swap: MapLibre runs its terrain depth
-       pass mid-setStyle against the half-replaced shader registry and throws —
-       applyRuntime rehangs the terrain once the new style has settled */
+    /* park everything runtime-added during the swap: MapLibre's draw pass
+       races the diffed style teardown — the terrain depth pass and the
+       runtime raster layers both throw if painted mid-swap. applyRuntime
+       rebuilds them once the new style has settled. */
+    SWAPPING = true;
     try { map.setTerrain(null); } catch (err) {}
-    map.setStyle(next, { diff:true });
-    map.once('styledata', applyRuntime);
+    try { removeRadarLayers(); } catch (err) {}
+    try {
+      if (map.getLayer('velocity')) map.removeLayer('velocity');
+      if (map.getSource('velocity')) map.removeSource('velocity');
+    } catch (err) {}
+    /* park the weather layers too: lift them out of the old style entirely so
+       the diff ADDS them fresh (empty) instead of re-binding their data-driven
+       paint against standing buckets mid-draw — setData alone is async and
+       loses that race (see the note on the empty-baked sources in makeStyle) */
+    try {
+      ['cloud-deck','rain-deck','alert-fill','alert-line','hurr-cone',
+       'hurr-cone-line','hurr-tracko','hurr-trackf','hurr-opos','hurr-fpos',
+       'hurr-fpos-label','hurr-name'].forEach(function(id){
+        if (map.getLayer(id)) map.removeLayer(id);
+      });
+      ['clouds','rain24','alerts','hurr-cone','hurr-trackf','hurr-tracko',
+       'hurr-fpos','hurr-opos'].forEach(function(id){
+        var s = map.getSource(id);
+        if (s) s.setData(emptyFC());
+      });
+    } catch (err) {}
+    /* a full style rebuild, not a diff: diffing re-binds the fill-extrusion
+       layers' data-driven paint against buckets the workers are still holding,
+       and the draw loop throws mid-swap. The plates repaint wholesale anyway —
+       correctness beats the diff's head start. */
+    map.setStyle(next, { diff:false });
+    map.once('styledata', function(){ SWAPPING = false; applyRuntime(); });
     drawHourly();   /* the chart's gridline colors are computed from the live tokens */
   }
   THEME_NAMES.forEach(function(n){
@@ -2415,7 +2490,9 @@
       condRow(rows, 'Humidity', '', Math.round(cur.relative_humidity_2m) + '%');
       condRow(rows, 'Pressure', '', (cur.surface_pressure * 0.02953).toFixed(2) + ' inHg');
       if (cur.precipitation > 0) {
-        condRow(rows, 'Precipitation', 'in the last hour', cur.precipitation.toFixed(2) + ' in');
+        /* a trace (under a hundredth of an inch) must not print as "0.00" */
+        condRow(rows, 'Precipitation', 'in the last hour',
+          cur.precipitation < 0.005 ? 'trace' : cur.precipitation.toFixed(2) + ' in');
       }
       sec.classList.remove('pending');
       note.innerHTML = 'Live from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>' +
@@ -2451,9 +2528,12 @@
       var dd = data.daily, sf = document.getElementById('sun-facts');
       var dl = dd.daylight_duration[0];
       var moon = moonPhase();
+      /* inside the polar circles there may be no rising or setting at all —
+         print the honest dash, not a fabricated midnight */
+      var noSun = !dl || dl < 60, allSun = dl > 86340;
       sf.innerHTML =
-        '<div><b>Sunrise</b>' + clock12(dd.sunrise[0]) + '</div>' +
-        '<div><b>Sunset</b>' + clock12(dd.sunset[0]) + '</div>' +
+        '<div><b>Sunrise</b>' + (noSun || allSun ? '&mdash;' : clock12(dd.sunrise[0])) + '</div>' +
+        '<div><b>Sunset</b>' + (noSun || allSun ? '&mdash;' : clock12(dd.sunset[0])) + '</div>' +
         '<div><b>Daylight</b>' + Math.floor(dl / 3600) + ' h ' +
           ('0' + Math.round(dl % 3600 / 60)).slice(-2) + ' m</div>' +
         '<div><b>UV high</b>' + (dd.uv_index_max[0] != null ?
@@ -2463,8 +2543,9 @@
       document.getElementById('sun-sec').classList.remove('pending');
     } catch (err) {}
 
-    drawDayDial();     /* the dial's sun arc rides the fresh ephemeris */
-    renderMasthead();  /* the masthead keeps the place's own calendar day */
+    drawDayDial();       /* the dial's sun arc rides the fresh ephemeris */
+    renderMasthead();    /* the masthead keeps the place's own calendar day */
+    setFrame(RADAR.idx); /* re-print the radar clock in the new place's time */
   }
 
   /* the 48-hour chart — temperature line over rain-chance bars, drawn fresh per theme */
@@ -2479,6 +2560,7 @@
     var cRain = css.getPropertyValue('--rain').trim() || '#54776f';
     var cInk = css.getPropertyValue('--ink-soft').trim() || '#6d5c41';
     var cRule = css.getPropertyValue('--rule').trim() || '#b9a47e';
+    var cGround = css.getPropertyValue('--ground').trim() || '#212B3A';
     var W = 320, H = 124, top = 16, bottom = 18, left = 2, right = 2;
     var plotH = H - top - bottom, plotW = W - left - right;
     var tmin = Infinity, tmax = -Infinity, i;
@@ -2522,9 +2604,11 @@
          where the label would mash into the time ticks; then it goes above */
       var ly = yT(h.temperature_2m[ix]) + (ix === loI ? 13 : -6);
       if (ix === loI && ly > top + plotH + 3) ly = yT(h.temperature_2m[ix]) - 8;
+      /* a ground-colored halo keeps the figure legible over full-height bars */
       out.push('<text x="' + tx.toFixed(1) + '" y="' + ly.toFixed(1) +
-        '" text-anchor="middle" font-size="10" font-weight="600" fill="' + cInk + '">' +
-        Math.round(h.temperature_2m[ix]) + '°</text>');
+        '" text-anchor="middle" font-size="10" font-weight="600"' +
+        ' paint-order="stroke" stroke="' + cGround + '" stroke-width="3"' +
+        ' fill="' + cInk + '">' + Math.round(h.temperature_2m[ix]) + '°</text>');
     });
     /* time ticks every 12 hours */
     for (i = 0; i < n; i += 12) {
@@ -2675,6 +2759,11 @@
     try { localStorage.setItem('almanac-loc', JSON.stringify(LOC)); } catch (err) {}
     updateHeading();
     spotPin.setLngLat([LOC.lon, LOC.lat]);
+    /* the old place's forecast (and its timezone) must not speak for the new
+       one — drop it and let the instruments run on the longitude estimate
+       until the real report lands */
+    WX = null;
+    drawDayDial(); renderMasthead(); setFrame(RADAR.idx);
     if (styleReady && map.getSource('spot')) map.getSource('spot').setData(locGeo());
     if (fly) {
       HOME = homeView();
@@ -2690,7 +2779,11 @@
   var searchBox = document.getElementById('loc-search'),
       results = document.getElementById('loc-results');
   var searchTimer = null, searchSeq = 0;
-  function hideResults(){ results.style.display = 'none'; results.innerHTML = ''; }
+  function hideResults(clearBox){
+    results.style.display = 'none'; results.innerHTML = '';
+    /* an abandoned search must not linger beside another place's name */
+    if (clearBox) searchBox.value = '';
+  }
   searchBox.addEventListener('input', function(){
     var q = searchBox.value.trim();
     clearTimeout(searchTimer);
@@ -2723,14 +2816,14 @@
     }, 280);
   });
   searchBox.addEventListener('keydown', function(e){
-    if (e.key === 'Escape') { hideResults(); searchBox.blur(); }
+    if (e.key === 'Escape') { hideResults(true); searchBox.blur(); }
     if (e.key === 'Enter') {
       var first = results.querySelector('li');
       if (first) first.click();
     }
   });
   document.addEventListener('click', function(e){
-    if (!document.getElementById('loc-box').contains(e.target)) hideResults();
+    if (!document.getElementById('loc-box').contains(e.target)) hideResults(true);
   });
 
   /* shared by the panel button and the on-map target control */

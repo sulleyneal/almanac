@@ -30,8 +30,11 @@ critic verifies each round.)
 ### Weather layers
 12. **Radar loop** (RainViewer): past 2 h + 30 min nowcast; play/pause; scrubber; frame
     time; PAST/NOW/FORECAST tag; strength slider; 5-min refresh; toggle; clears instantly
-    via layer visibility; layers rebuilt after edition swaps; bar hidden when radar off or
-    no frames.
+    via layer visibility; layers rebuilt after edition swaps; radar controls hidden when
+    radar off or no frames. *(Amended in round 3: the bar is now the Day-Dial ephemeris —
+    turning radar off folds away only the controls row, the loop window and the frame
+    tick; the day strip, sun arc, needle and moon stay. The dial must not be a hostage
+    of the radar toggle.)*
 13. **Doppler velocity**: nearest WSR-88D N0U via IEM tiles; station auto-switches as you
     pan (~4° radius cutoff); 5-min refresh; toggle.
 14. **Cloud tops 3-D**: GOES-East/West / Himawari Band-13 IR decoded pixel-by-pixel,
