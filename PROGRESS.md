@@ -1,9 +1,34 @@
 # Visual overhaul — progress
 
-**Round:** 5 — ROUND 4 CAME BACK WITH ZERO MAJOR FINDINGS. Round 5 decides:
-a second consecutive zero-major round ends the loop.
-**State:** ▶ Round 4's seven minors triaged: five fixed, two accepted with
-rationale (below).
+**Round:** 5 — **DONE. Rounds 4 and 5 both returned zero major findings —
+two consecutive clean rounds, the loop's termination condition.**
+**State:** ✅ Complete. The build the critics cleared is the build on this
+branch — no code changed after round 5's review.
+
+## Terminal state (round 5 verdict, fresh-eyes critic)
+- 2× full plate cycling with all nine layers on: **0 pageerrors, 0 console
+  errors**.
+- Alert chip / map popup / NWS headline agree verbatim against the live feed.
+- Clock coherence verified numerically in Honolulu, Ruston, Riyadh, Vostok —
+  masthead, "as of", radar clock and dial needle all on the place's own time;
+  the transient after a far search correctly shows the marked "≈" estimate.
+- Full keyboard ring, reduced-motion pause, honest degradation in all four
+  simulated outages, no horizontal scroll anywhere.
+- Contract: **40 of 41 OK** (item 18, hurricane rendering, remains honestly
+  unverifiable — zero tropical cyclones existed on Earth during all five
+  rounds; the feed queries fire and the empty state is truthful).
+- Critic's own words: "This reads as one product across all five plates …
+  I would ship it."
+
+## Noted follow-ups (round-5 minors, deliberately NOT applied post-loop —
+the shipped build is exactly what two clean rounds reviewed)
+1. Wind-flow trails have low salience on light plates in light wind (the
+   critic's first fix-next pick).
+2. No extreme-cold badge tier: −85 °F is captioned "below freezing" (the
+   critic's second pick — add a blue "extreme cold" mark ≤ −30 °F).
+3. OSM labels can pass under the right-edge tool column at 360.
+4. The 48-h rain bars carry no % scale cue.
+5. Tapping the rain layer where no rain fell gives no "nothing here" feedback.
 
 ## Round 4 (first clean round) — minors triaged
 Fixed:
@@ -163,4 +188,5 @@ Live smoke shot confirmed: tiles, forecast, Day-Dial sun arc, radar loop all rea
   swaps clean, clocks agree across 7 timezones, alert chip/popup/headline
   agree verbatim, contract 40/41 OK (hurricanes: zero storms on Earth to
   render). 7 minors: 5 fixed, 2 accepted (above).
-- **Round 5**: in flight — second consecutive zero-major round ends the loop.
+- **Round 5** (full matrix, live data): **ZERO MAJORS** — second consecutive
+  clean round. Loop complete. 5 minors recorded above as follow-ups.
