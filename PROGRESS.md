@@ -1,8 +1,8 @@
 # Visual overhaul — progress
 
-**Round:** 1 (build) — plan approved (unified chrome; grain/vignette retired; drawn glyphs)
-**State:** ⏳ Built and smoke-tested offline; full critic loop still gated on the
-network-policy fix (see Blocked).
+**Round:** 1 (build) done — critic loop started with live data
+**State:** ▶ Network policy fixed (all nine data hosts allowlisted and verified).
+Critic round 1 in flight.
 
 ## Round 1 — what changed
 - **One binding:** the per-edition chrome split (parchment serif UI vs. glass cyan UI)
@@ -24,14 +24,16 @@ network-policy fix (see Blocked).
 - Layout verified by measurement at 360/768/900/1120/1440 — no overlaps, no
   horizontal scroll.
 
-## Blocked (unchanged)
-Egress policy still denies the data hosts, so everything above was verified only in
-offline states (chrome, typography, failure state, layout metrics). The critic loop —
-real forecast/radar/alert states, lineup test, regression contract — starts the moment
-these are allowlisted: `tiles.openfreemap.org`, `api.open-meteo.com`,
-`geocoding-api.open-meteo.com`, `api.rainviewer.com`, `tilecache.rainviewer.com`,
-`api.weather.gov`, `gibs.earthdata.nasa.gov`, `mesonet.agron.iastate.edu`,
-`services9.arcgis.com`. This session re-checks reachability on a timer.
+## Unblocked (2026-07-13)
+The environment's network policy now allowlists all nine data hosts; each was
+verified with a real request (radar tile download, NWS point alerts, geocoding).
+One sandbox quirk documented for future sessions: the egress gateway resets
+*Chromium's* TLS handshake even for allowlisted hosts, so the screenshot harness
+routes every external request through Playwright's Node-side fetch
+(`context.route` → `request.newContext({proxy})` → `route.fulfill`), which uses
+the same TLS stack as curl. All requests still traverse the policy proxy.
+Live smoke shot confirmed: tiles, forecast, Day-Dial sun arc, radar loop all real.
 
 ## Critic findings
-None yet — critic rounds require live data.
+Round 1 in flight (fresh-context critic; live data; 41-item contract + state
+matrix + lineup + extremes + a11y).
