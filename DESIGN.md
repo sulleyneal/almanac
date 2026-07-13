@@ -88,6 +88,9 @@ critic verifies each round.)
 36. Basemap-unreachable warning (`#warn`) on `openmaptiles` source errors.
 37. No-WebGL message.
 38. Antique extras today: paper grain, vignette, corner cartouche (see open question Q3).
+    *(Resolved with the approved plan: grain and vignette deliberately retired — Q3
+    answered "retire" — the cartouche kept and redrawn in the new type. Their absence
+    is the intended state, not a regression.)*
 39. Persisted prefs: edition, place, all four sliders.
 40. Credits block with working links; PWA manifest + icons; OG meta.
 41. The spot marker (dot + glow on dark editions + uppercase label) follows the chosen place.

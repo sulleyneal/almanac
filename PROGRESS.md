@@ -1,8 +1,37 @@
 # Visual overhaul — progress
 
-**Round:** 3 — round-2 findings fixed, critic round 3 in flight
-**State:** ▶ Round 2 returned 4 majors + 10 minors (down from 6 + 8). All fixed
-and smoke-verified. Done = two consecutive critic rounds with zero majors.
+**Round:** 4 — round-3 findings fixed, critic round 4 in flight
+**State:** ▶ Round 3 confirmed every previous major stayed fixed (15-switch
+cycling with all layers: zero errors; corners clean; focus rings everywhere)
+and found 3 new majors + 9 minors, all in the clock-fallback and material
+department. All fixed and smoke-verified. Done = two consecutive zero-major
+rounds; round 4 is the first candidate.
+
+## Round 3 critic findings → fixes (all landed)
+Majors:
+1. **Alert chip printed the wrong "until" time** (2 h off — the longitude
+   estimate formatting a stamp that carries its own zone) → chips now print the
+   alert's own wall clock via the same helper the popup uses; chip, popup and
+   NWS headline agree verbatim. Verified against a live Cochise-County FFW.
+2. **Dial and radar clock kept different fallback clocks** (browser tz vs
+   longitude estimate) when the forecast was absent → `ddOffset` now delegates
+   to the single `placeOffsetSec` chain. One clock, one fallback, everywhere.
+3. **Cloud tops on light plates read as masonry** → the r2 cell-overlap (which
+   drew a pale lattice) is gone; light plates get a cool grey-blue deck at 0.52
+   opacity that reads as vapor over the paper; dark plates keep their material.
+
+Minors: Flash Flood Warning now wears its conventional dark red (green was the
+river-flood color — a hazard-class misread); relocating puts the old place's
+observations into the pending state instead of leaving them under the new
+heading; the mobile dial draws at its real 40 px height (it was scaling to 87%
+and floating inside its bar with sub-9 px labels); the radar tag admits
+"INKING…" while the visible frame's tiles are still arriving; an alerts-feed
+outage shows a muted "warnings unreachable" chip instead of nothing; wind
+trails ride a reading ink on light plates (gold-on-cream was ~invisible);
+Enter pressed before search results arrive selects the first hit when it
+lands; map labels for very long place names truncate with an ellipsis (the
+full name stays in the heading); DESIGN.md §0 item 38 records that grain and
+vignette are retired by approved design, not regression.
 
 ## Round 2 critic findings → fixes (all landed)
 Majors:
@@ -106,4 +135,7 @@ Live smoke shot confirmed: tiles, forecast, Day-Dial sun arc, radar loop all rea
 - **Round 2** (full matrix, live data): 4 majors / 10 minors — listed above,
   all fixed. Contract: 34 OK, 3 partial, rest environmental. The two rounds
   agree the concept holds; the failures were craft and edge cases.
-- **Round 3**: in flight. Needs zero majors here AND in round 4 to finish.
+- **Round 3** (full matrix, live data): 3 majors / 9 minors, all new — every
+  round-1/2 major stayed fixed. Contract: 36 OK, 2 partial, 1 broken (the chip
+  clock, fixed), hurricanes still unverifiable (zero storms on Earth).
+- **Round 4**: in flight — first candidate for the two-clean-rounds finish.

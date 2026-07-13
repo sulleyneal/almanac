@@ -712,7 +712,7 @@
       waterText:'#54776f', poiText:'#71603f', poiFont:'Noto Sans Italic',
       hoodText:'#86714b', hoodFont:'Noto Sans Italic', villageText:'#594a30', townText:'#4a3a26',
       lmText:'#3f3322', lmHalo:'#f6eed9', lmStroke:'#3f3322', lmDot:'#9a3b2e',
-      cloudLow:'#e9dfc5', cloudHigh:'#fbf7ec',
+      cloudLow:'#c6d0da', cloudHigh:'#f3f7fb', cloudOp:0.52,
       rainLow:'#c2d2cb', rainHigh:'#3f6b62',
       sky:{ 'sky-color':'#e6d9b8','horizon-color':'#efe5cd','fog-color':'#efe5cd',
             'sky-horizon-blend':0.8,'horizon-fog-blend':0.6 }
@@ -820,9 +820,10 @@
   var name = ['coalesce', ['get','name:latin'], ['get','name:en'], ['get','name']];
 
   function locGeo(){
+    var label = LOC.name.length > 18 ? LOC.name.slice(0, 17) + '\u2026' : LOC.name;
     return { type:'FeatureCollection', features:[
       { type:'Feature', geometry:{ type:'Point', coordinates:[LOC.lon, LOC.lat] },
-        properties:{ name:LOC.name } }
+        properties:{ name:label } }
     ] };
   }
 
@@ -1049,7 +1050,9 @@
                 /* no wall shading — from above it read as a grey checkerboard
                    of column seams rather than a cloud deck */
                 'fill-extrusion-vertical-gradient':false,
-                'fill-extrusion-opacity':0.68 } });
+                /* light plates run the deck sheerer, so it reads as vapor over
+                   the paper instead of masonry */
+                'fill-extrusion-opacity':P.cloudOp || 0.68 } });
 
     /* hurricane tracking — cone, tracks, positions (topmost so the storm reads clearly) */
     var stormCol = ['interpolate',['linear'],['get','wind'],
@@ -1471,6 +1474,9 @@
       setFrame(RADAR.idx);
     } catch (err) {}
   }
+  function tagFor(i){
+    return i === RADAR.pastCount - 1 ? 'NOW' : i >= RADAR.pastCount ? 'FORECAST' : 'PAST';
+  }
   function setFrame(i){
     if (!RADAR.frames.length) return;
     RADAR.idx = (i + RADAR.frames.length) % RADAR.frames.length;
@@ -1489,21 +1495,27 @@
     rbScrub.value = RADAR.idx;
     rbTime.textContent = placeClock(new Date(f.time * 1000),
       { hour:'numeric', minute:'2-digit' });
-    rbTag.textContent = RADAR.idx === RADAR.pastCount - 1 ? 'NOW' :
-                        RADAR.idx >= RADAR.pastCount ? 'FORECAST' : 'PAST';
+    rbTag.textContent = tagFor(RADAR.idx);
     updateDialMarker();
+  }
+  function frameLoaded(i){
+    try {
+      var id = 'radar-' + i;
+      return !styleReady || !map.getSource(id) || map.isSourceLoaded(id);
+    } catch (err) { return true; }
   }
   function tickRadar(){
     if (!RADAR.frames.length || !radarOn()) return;
     /* a style rebuild (e.g. a fast theme switch) can drop the runtime radar layers — re-add them */
     if (styleReady && map.isStyleLoaded() && !map.getLayer('radar-' + RADAR.idx)) buildRadarLayers();
+    /* the tag admits when the visible frame's tiles are still arriving, so an
+       echoless map can't be mistaken for a dry one */
+    rbTag.textContent = frameLoaded(RADAR.idx) ? tagFor(RADAR.idx) : 'INKING\u2026';
     if (RADAR.playing) {
       /* hold the frame until the next one's tiles are aboard — otherwise the
          first cycle flashes blank frames while they stream in (bounded hold,
          so one stubborn tile can't freeze the loop) */
-      var nid = 'radar-' + ((RADAR.idx + 1) % RADAR.frames.length);
-      var ready = true;
-      try { ready = !styleReady || !map.getSource(nid) || map.isSourceLoaded(nid); } catch (err) {}
+      var ready = frameLoaded((RADAR.idx + 1) % RADAR.frames.length);
       if (!ready && (RADAR.hold || 0) < 8) { RADAR.hold = (RADAR.hold || 0) + 1; return; }
       RADAR.hold = 0;
       setFrame(RADAR.idx + 1);
@@ -1554,8 +1566,8 @@
     drawDayDial();   /* the strip re-measures itself when the bar reshapes */
   }
   function ddOffset(){
-    return (WX && typeof WX.utc_offset_seconds === 'number')
-      ? WX.utc_offset_seconds : -new Date().getTimezoneOffset() * 60;
+    /* one clock everywhere: same fallback chain as every printed time */
+    return placeOffsetSec();
   }
   function ddNowFrac(off){
     var d = new Date(Date.now() + off * 1000);
@@ -1572,12 +1584,12 @@
   }
   function drawDayDial(){
     if (!ddStrip) return;
-    var W = ddStrip.clientWidth || 560, H = 46;
+    var W = ddStrip.clientWidth || 560, H = ddStrip.clientHeight || 46;
     DIAL.W = W;
     ddStrip.setAttribute('viewBox', '0 0 ' + W + ' ' + H);
     var off = ddOffset(), nowF = ddNowFrac(off);
     var out = [];
-    var bandY = 30, bandH = 7, baseY = bandY - 2;
+    var bandY = H - 16, bandH = 7, baseY = bandY - 2;
     out.push('<rect x="0" y="' + bandY + '" width="' + W + '" height="' + bandH +
              '" rx="1.5" fill="#1A2230"/>');
     var sr = (WX && WX.daily && WX.daily.sunrise) ? ddIsoFrac(WX.daily.sunrise[0]) : null;
@@ -1640,8 +1652,10 @@
     if (sr != null && ss != null && ss > sr && WX && WX.daily) {
       lbl += ': sunrise ' + clock12(WX.daily.sunrise[0]) +
              ', sunset ' + clock12(WX.daily.sunset[0]);
-    } else {
+    } else if (WX) {
       lbl += ': no sunrise or sunset today';
+    } else {
+      lbl += ': awaiting the report';
     }
     lbl += '; moon ' + mp.illum + '% lit';
     ddStrip.setAttribute('aria-label', lbl);
@@ -1816,11 +1830,8 @@
           var d = cloudDecode(data[i4], data[i4 + 1], data[i4 + 2], data[i4 + 3]);
           if (!d) continue;
           var gx = t.x * 256 + px, gy = t.y * 256 + py;
-          /* cells overlap their neighbors a hair, so no antialiasing cracks
-             open up between adjacent columns */
-          var ov = step * 0.06;
-          var lon0 = gx / world * 360 - 180, lon1 = (gx + step + ov) / world * 360 - 180;
-          var lat0 = mercLat(gy, world), lat1 = mercLat(gy + step + ov, world);
+          var lon0 = gx / world * 360 - 180, lon1 = (gx + step) / world * 360 - 180;
+          var lat0 = mercLat(gy, world), lat1 = mercLat(gy + step, world);
           if (lon1 < w || lon0 > e || lat0 < sLat || lat1 > nLat) continue;
           feats.push({ type:'Feature', properties:{ s:d[0], h:d[1], b:d[2] },
             geometry:{ type:'Polygon', coordinates:[[
@@ -1981,7 +1992,9 @@
     WIND.raf = 0;
     if (!windOn() || document.hidden || !WIND.grid) return;
     if (--WIND.colTick <= 0) {
-      WIND.col = getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#38bdf8';
+      WIND.col = document.body.className.indexOf('mode-light') !== -1
+        ? '#4a3a26'
+        : (getComputedStyle(document.body).getPropertyValue('--accent').trim() || '#38bdf8');
       WIND.colTick = 120;
     }
     windCtx.globalCompositeOperation = 'destination-in';
@@ -2067,7 +2080,7 @@
   var ALERT_COLORS = {
     'Tornado Warning':'#e11d48', 'Tornado Watch':'#fb7185',
     'Severe Thunderstorm Warning':'#f59e0b', 'Severe Thunderstorm Watch':'#fbbf24',
-    'Flash Flood Warning':'#15803d', 'Flash Flood Watch':'#4ade80',
+    'Flash Flood Warning':'#b91c1c', 'Flash Flood Watch':'#2e8b57',
     'Flood Warning':'#22c55e', 'Flood Advisory':'#86efac', 'Flood Watch':'#a7f3d0',
     'Hurricane Warning':'#be123c', 'Hurricane Watch':'#fb7185',
     'Tropical Storm Warning':'#c2410c', 'Tropical Storm Watch':'#fdba74',
@@ -2646,13 +2659,19 @@
           div.className = 'alert-chip';
           div.style.borderLeftColor = col;
           var until = p.ends || p.expires;
+          /* the stamp carries the alert area's own offset — print that wall
+             clock so the chip, the popup and the NWS headline all agree */
           div.innerHTML = '<b style="color:' + col + '">' + (p.event || 'Weather alert') + '</b>' +
-            (until ? 'until ' + placeClock(new Date(until),
-              { weekday:'short', hour:'numeric', minute:'2-digit' }) : '');
+            (until ? 'until ' + alertWallClock(until) : '');
           box.appendChild(div);
         });
       })
-      .catch(function(){});
+      .catch(function(){
+        /* "no warnings" and "warnings unreachable" must not look alike */
+        box.innerHTML = '<div class="alert-chip" style="border-left-color:#93A1B4">' +
+          '<b style="color:#93A1B4">Warnings unreachable</b>' +
+          'the almanac checks again shortly</div>';
+      });
   }
 
   /* format an ISO stamp in the timezone written INTO the stamp (NWS alerts
@@ -2763,6 +2782,9 @@
        one — drop it and let the instruments run on the longitude estimate
        until the real report lands */
     WX = null;
+    ['cond-sec', 'hr-sec', 'wk-sec', 'sun-sec'].forEach(function(id){
+      document.getElementById(id).classList.add('pending');
+    });
     drawDayDial(); renderMasthead(); setFrame(RADAR.idx);
     if (styleReady && map.getSource('spot')) map.getSource('spot').setData(locGeo());
     if (fly) {
@@ -2784,7 +2806,9 @@
     /* an abandoned search must not linger beside another place's name */
     if (clearBox) searchBox.value = '';
   }
+  var enterPending = false;
   searchBox.addEventListener('input', function(){
+    enterPending = false;
     var q = searchBox.value.trim();
     clearTimeout(searchTimer);
     if (q.length < 2) { hideResults(); return; }
@@ -2811,15 +2835,22 @@
             results.appendChild(li);
           });
           results.style.display = 'block';
+          /* Enter pressed while the wire was still out — take the first hit */
+          if (enterPending) {
+            enterPending = false;
+            var first = results.querySelector('li');
+            if (first) first.click();
+          }
         })
         .catch(function(){});
     }, 280);
   });
   searchBox.addEventListener('keydown', function(e){
-    if (e.key === 'Escape') { hideResults(true); searchBox.blur(); }
+    if (e.key === 'Escape') { enterPending = false; hideResults(true); searchBox.blur(); }
     if (e.key === 'Enter') {
       var first = results.querySelector('li');
       if (first) first.click();
+      else if (searchBox.value.trim().length >= 2) enterPending = true;
     }
   });
   document.addEventListener('click', function(e){
